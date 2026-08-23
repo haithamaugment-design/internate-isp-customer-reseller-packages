@@ -128,6 +128,7 @@ export default function AdminProductsPage() {
         categoryId: form.categoryId || null,
         published: form.published,
         featured: form.featured,
+        linkedBlogIds: form.linkedBlogIds.length > 0 ? form.linkedBlogIds.join(",") : undefined,
       };
 
       if (editingProduct) {

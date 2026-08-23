@@ -8,6 +8,7 @@ function toFrontendPost(p: any) {
   return {
     ...p,
     coverImage: p.featuredImage || p.coverImage || null,
+    linkedProductIds: p.productLinks?.map((l: any) => l.productId).join(",") || "",
   };
 }
 
@@ -60,7 +61,7 @@ router.get("/posts", async (req: Request, res: Response, next: NextFunction) => 
         ...(all ? {} : { published: true }),
         ...(categoryId ? { categoryId } : {}),
       },
-      include: { category: true },
+      include: { category: true, productLinks: true },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -77,12 +78,12 @@ router.get("/posts/:idOrSlug", async (req: Request, res: Response, next: NextFun
     // Try by id first, then by slug
     let post = await prisma.blogPost.findUnique({
       where: { id: param },
-      include: { category: true },
+      include: { category: true, productLinks: true },
     }).catch(() => null);
     if (!post) {
       post = await prisma.blogPost.findUnique({
         where: { slug: param },
-        include: { category: true },
+        include: { category: true, productLinks: true },
       }).catch(() => null);
     }
     if (!post) return res.status(404).json({ error: "Post not found" });
@@ -116,8 +117,20 @@ router.post("/posts", async (req: Request, res: Response, next: NextFunction) =>
         published: published ?? false,
         tags: tagsArray,
       },
+      include: { productLinks: true },
     });
-    res.json({ data: post });
+    // Save linked products
+    if (linkedProductIds && typeof linkedProductIds === "string") {
+      const ids = linkedProductIds.split(",").map((s: string) => s.trim()).filter(Boolean);
+      for (const productId of ids) {
+        await prisma.blogProductLink.upsert({
+          where: { blogPostId_productId: { blogPostId: post.id, productId } },
+          update: {},
+          create: { blogPostId: post.id, productId },
+        }).catch(() => {});
+      }
+    }
+    res.json({ data: toFrontendPost(post) });
   } catch (err: any) {
     console.error("POST /blog/posts error:", err?.code, err?.message?.substring(0, 300));
     next(err);
@@ -137,6 +150,20 @@ router.put("/posts/:id", async (req: Request, res: Response, next: NextFunction)
       data.tags = typeof req.body.tags === "string" ? req.body.tags.split(",").map((t: string) => t.trim()) : req.body.tags;
     }
     await prisma.blogPost.update({ where: { id: req.params.id }, data });
+    // Update linked products
+    if (req.body.linkedProductIds !== undefined) {
+      // Delete existing links
+      await prisma.blogProductLink.deleteMany({ where: { blogPostId: req.params.id } });
+      // Create new links
+      const ids = typeof req.body.linkedProductIds === "string"
+        ? req.body.linkedProductIds.split(",").map((s: string) => s.trim()).filter(Boolean)
+        : Array.isArray(req.body.linkedProductIds) ? req.body.linkedProductIds : [];
+      for (const productId of ids) {
+        await prisma.blogProductLink.create({
+          data: { blogPostId: req.params.id, productId },
+        }).catch(() => {});
+      }
+    }
     res.json({ data: { ok: true } });
   } catch (err) { next(err); }
 });

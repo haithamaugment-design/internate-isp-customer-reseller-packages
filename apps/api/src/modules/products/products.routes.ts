@@ -11,6 +11,7 @@ function toFrontend(p: any) {
     ...p,
     price: p.priceCents ?? 0,
     imageUrl: p.images?.[0] || null,
+    linkedBlogIds: p.blogLinks?.map((l: any) => l.blogPostId).join(",") || "",
   };
 }
 
@@ -60,7 +61,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
         ...(all ? {} : { published: true }),
         ...(categoryId ? { categoryId } : {}),
       },
-      include: { category: true },
+      include: { category: true, blogLinks: true },
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
       take: 100,
     });
@@ -72,7 +73,7 @@ router.get("/featured", async (_req: Request, res: Response, next: NextFunction)
   try {
     const products = await prisma.product.findMany({
       where: { featured: true, published: true },
-      include: { category: true },
+      include: { category: true, blogLinks: true },
       orderBy: { createdAt: "desc" },
       take: 6,
     });
@@ -84,7 +85,7 @@ router.get("/:slug", async (req: Request, res: Response, next: NextFunction) => 
   try {
     const product = await prisma.product.findUnique({
       where: { slug: req.params.slug },
-      include: { category: true },
+      include: { category: true, blogLinks: true },
     });
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json({ data: toFrontend(product) });
@@ -110,7 +111,19 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         published: published ?? true,
         featured: featured ?? false,
       },
+      include: { blogLinks: true },
     });
+    // Save linked blogs
+    if (req.body.linkedBlogIds && typeof req.body.linkedBlogIds === "string") {
+      const ids = req.body.linkedBlogIds.split(",").map((s: string) => s.trim()).filter(Boolean);
+      for (const blogPostId of ids) {
+        await prisma.blogProductLink.upsert({
+          where: { blogPostId_productId: { blogPostId, productId: product.id } },
+          update: {},
+          create: { blogPostId, productId: product.id },
+        }).catch(() => {});
+      }
+    }
     res.json({ data: toFrontend(product) });
   } catch (err) { next(err); }
 });
@@ -137,6 +150,18 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     if (req.body.featured !== undefined) data.featured = req.body.featured;
     if (req.body.categoryId !== undefined) data.categoryId = req.body.categoryId || null;
     await prisma.product.update({ where: { id: req.params.id }, data });
+    // Update linked blogs
+    if (req.body.linkedBlogIds !== undefined) {
+      await prisma.blogProductLink.deleteMany({ where: { productId: req.params.id } });
+      const ids = typeof req.body.linkedBlogIds === "string"
+        ? req.body.linkedBlogIds.split(",").map((s: string) => s.trim()).filter(Boolean)
+        : Array.isArray(req.body.linkedBlogIds) ? req.body.linkedBlogIds : [];
+      for (const blogPostId of ids) {
+        await prisma.blogProductLink.create({
+          data: { blogPostId, productId: req.params.id },
+        }).catch(() => {});
+      }
+    }
     res.json({ data: { ok: true } });
   } catch (err) { next(err); }
 });
