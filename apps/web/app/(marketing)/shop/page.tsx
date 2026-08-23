@@ -248,10 +248,10 @@ export default function ShopPage() {
                           </p>
                           <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-extrabold bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-teal)] bg-clip-text text-transparent">
-                              {(product.price / 100).toLocaleString()} TZS
+                              {product.price.toLocaleString()} TZS
                             </span>
                             {product.comparePrice && product.comparePrice > product.price && (
-                              <span className="text-sm text-[var(--text-tertiary)] line-through">{(product.comparePrice / 100).toLocaleString()}</span>
+                              <span className="text-sm text-[var(--text-tertiary)] line-through">{product.comparePrice.toLocaleString()}</span>
                             )}
                           </div>
                         </div>
@@ -305,10 +305,10 @@ export default function ShopPage() {
                           <div className="flex items-center justify-between pt-3 border-t border-[var(--hairline)]">
                             <div className="flex items-baseline gap-2">
                               <span className="text-xl font-extrabold bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-teal)] bg-clip-text text-transparent">
-                                {(product.price / 100).toLocaleString()} TZS
+                                {product.price.toLocaleString()} TZS
                               </span>
                               {product.comparePrice && product.comparePrice > product.price && (
-                                <span className="text-xs text-[var(--text-tertiary)] line-through">{(product.comparePrice / 100).toLocaleString()}</span>
+                                <span className="text-xs text-[var(--text-tertiary)] line-through">{product.comparePrice.toLocaleString()}</span>
                               )}
                             </div>
                             <span className="text-sm font-semibold text-[var(--accent-blue)] opacity-0 group-hover:opacity-100 transition-opacity">

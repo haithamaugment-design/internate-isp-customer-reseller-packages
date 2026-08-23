@@ -120,8 +120,8 @@ export default function AdminProductsPage() {
         name: form.name.trim(),
         slug: form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
         description: form.description || null,
-        price: Math.round(parseFloat(form.price) * 100) || 0,
-        comparePrice: form.comparePrice ? Math.round(parseFloat(form.comparePrice) * 100) : undefined,
+        price: Math.round(parseFloat(form.price)) || 0,
+        comparePrice: form.comparePrice ? Math.round(parseFloat(form.comparePrice)) : undefined,
         imageUrl: form.imageUrl || null,
         specs: specsObj,
         stock: parseInt(form.stock) || 0,
@@ -196,9 +196,9 @@ export default function AdminProductsPage() {
       name: product.name,
       slug: product.slug,
       description: product.description || "",
-      price: product.priceCents ? (product.priceCents / 100).toString() : "",
-      comparePrice: product.comparePrice ? (product.comparePrice / 100).toString() : "",
-      imageUrl: product.images?.[0] || "",
+      price: (product.price ?? 0).toString(),
+      comparePrice: product.comparePrice ? product.comparePrice.toString() : "",
+      imageUrl: (product as any).imageUrl || product.images?.[0] || "",
       specs: specsRaw,
       features: "",
       stock: (product.stock ?? 0).toString(),
@@ -372,7 +372,7 @@ export default function AdminProductsPage() {
                       {product.category && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)]">{product.category.name}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-sm">
-                      <span className="font-semibold text-[var(--text)]">{((product.priceCents || 0) / 100).toLocaleString()} TZS</span>
+                      <span className="font-semibold text-[var(--text)]">{((product as any).price ?? product.priceCents ?? 0).toLocaleString()} TZS</span>
                       <span className="text-[var(--text-muted)]">Stock: {product.stock}</span>
                     </div>
                   </div>

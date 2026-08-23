@@ -191,7 +191,7 @@ export default function BlogPostContent({ slug }: { slug: string }) {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-[var(--text)] group-hover:text-[var(--accent)] transition-colors truncate">{product.name}</h3>
                     <p className="text-sm text-[var(--text-muted)] line-clamp-2 mt-1">{product.description?.slice(0, 80)}</p>
-                    <p className="text-sm font-bold text-[var(--accent)] mt-1">{(product.price / 100).toLocaleString()} TZS</p>
+                    <p className="text-sm font-bold text-[var(--accent)] mt-1">{product.price.toLocaleString()} TZS</p>
                   </div>
                 </Link>
               ))}

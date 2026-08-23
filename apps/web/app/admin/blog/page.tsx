@@ -303,7 +303,7 @@ export default function AdminBlogPage() {
                       const vals = Array.from(e.target.selectedOptions, o => o.value);
                       setForm({ ...form, linkedProductIds: vals });
                     }} className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)] h-[88px]">
-                      {products.map(p => <option key={p.id} value={p.id}>{p.name} — {(p.price / 100).toLocaleString()} TZS</option>)}
+                      {products.map(p => <option key={p.id} value={p.id}>{p.name} — {p.price.toLocaleString()} TZS</option>)}
                     </select>
                     <p className="text-xs text-[var(--text-muted)] mt-1">Hold Ctrl/Cmd to select multiple</p>
                   </div>

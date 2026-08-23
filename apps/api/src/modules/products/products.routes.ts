@@ -3,6 +3,17 @@ import { prisma } from "../../prisma/client";
 
 const router = Router();
 
+/** Transform Prisma Product to frontend-friendly shape.
+ *  priceCents stores the price in TZS (no cents conversion).
+ *  images is a string[] — we extract the first for imageUrl. */
+function toFrontend(p: any) {
+  return {
+    ...p,
+    price: p.priceCents ?? 0,
+    imageUrl: p.images?.[0] || null,
+  };
+}
+
 // Categories
 router.get("/categories", async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -53,7 +64,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
       take: 100,
     });
-    res.json({ data: products });
+    res.json({ data: products.map(toFrontend) });
   } catch { res.json({ data: [] }); }
 });
 
@@ -65,7 +76,7 @@ router.get("/featured", async (_req: Request, res: Response, next: NextFunction)
       orderBy: { createdAt: "desc" },
       take: 6,
     });
-    res.json({ data: products });
+    res.json({ data: products.map(toFrontend) });
   } catch { res.json({ data: [] }); }
 });
 
@@ -76,7 +87,7 @@ router.get("/:slug", async (req: Request, res: Response, next: NextFunction) => 
       include: { category: true },
     });
     if (!product) return res.status(404).json({ error: "Product not found" });
-    res.json({ data: product });
+    res.json({ data: toFrontend(product) });
   } catch (err) { next(err); }
 });
 
@@ -84,12 +95,14 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, description, price, comparePrice, imageUrl, specs, features, stock, published, featured, categoryId } = req.body;
     const slug = (req.body.slug || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    // Accept price as a number (TZS). No cents conversion needed.
+    const priceVal = typeof price === "number" ? price : Math.round(parseFloat(String(price || "0")));
     const product = await prisma.product.create({
       data: {
         name,
         slug,
         description: description || null,
-        priceCents: typeof price === "number" ? price : Math.round(parseFloat(price || "0") * 100),
+        priceCents: priceVal,
         images: imageUrl ? [imageUrl] : [],
         categoryId: categoryId || null,
         specs: specs || null,
@@ -98,7 +111,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
         featured: featured ?? false,
       },
     });
-    res.json({ data: product });
+    res.json({ data: toFrontend(product) });
   } catch (err) { next(err); }
 });
 
@@ -108,10 +121,17 @@ router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     if (req.body.name !== undefined) data.name = req.body.name;
     if (req.body.description !== undefined) data.description = req.body.description;
     if (req.body.price !== undefined) {
-      data.priceCents = typeof req.body.price === "number" ? req.body.price : Math.round(parseFloat(req.body.price || "0") * 100);
+      // Accept price as TZS number — no cents conversion.
+      data.priceCents = typeof req.body.price === "number" ? req.body.price : Math.round(parseFloat(String(req.body.price || "0")));
     }
     if (req.body.imageUrl !== undefined) data.images = req.body.imageUrl ? [req.body.imageUrl] : [];
-    if (req.body.specs !== undefined) data.specs = req.body.specs;
+    if (req.body.specs !== undefined) {
+      if (typeof req.body.specs === "string") {
+        try { data.specs = JSON.parse(req.body.specs); } catch { data.specs = null; }
+      } else {
+        data.specs = req.body.specs;
+      }
+    }
     if (req.body.stock !== undefined) data.stock = parseInt(req.body.stock) || 0;
     if (req.body.published !== undefined) data.published = req.body.published;
     if (req.body.featured !== undefined) data.featured = req.body.featured;

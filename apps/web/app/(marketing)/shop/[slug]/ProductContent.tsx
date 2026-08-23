@@ -187,9 +187,9 @@ export default function ProductContent({ slug }: { slug: string }) {
             )}
             <h1 className="text-2xl md:text-3xl font-extrabold text-[var(--text)] mb-2">{product.name}</h1>
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl font-bold text-[var(--accent)]">{(product.price / 100).toLocaleString()} TZS</span>
+              <span className="text-2xl font-bold text-[var(--accent)]">{product.price.toLocaleString()} TZS</span>
               {product.comparePrice && product.comparePrice > product.price && (
-                <span className="text-lg text-[var(--text-muted)] line-through">{(product.comparePrice / 100).toLocaleString()} TZS</span>
+                <span className="text-lg text-[var(--text-muted)] line-through">{product.comparePrice.toLocaleString()} TZS</span>
               )}
             </div>
 
