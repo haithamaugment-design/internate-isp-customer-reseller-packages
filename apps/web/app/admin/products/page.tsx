@@ -138,9 +138,10 @@ export default function AdminProductsPage() {
     e.preventDefault();
     try {
       const body = {
-        ...catForm,
+        name: catForm.name.trim(),
         slug: catForm.slug || catForm.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-        parentId: catForm.parentId || undefined,
+        description: catForm.description || null,
+        parentId: catForm.parentId || null,
       };
 
       if (editingCat) {
@@ -152,8 +153,9 @@ export default function AdminProductsPage() {
       setEditingCat(null);
       resetCatForm();
       loadData();
-    } catch {
-      alert("Failed to save category");
+    } catch (err: any) {
+      const msg = err?.message || "Failed to save category";
+      alert(msg);
     }
   }
 
@@ -406,7 +408,7 @@ export default function AdminProductsPage() {
                   <input type="text" value={catForm.description} onChange={e => setCatForm({ ...catForm, description: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]" />
                 </div>
                 <div>
-                  <label className="block text-sm text-[var(--text-muted)] mb-1">Parent Category (for subcategories)</label>
+                  <label className="block text-sm text-[var(--text-muted)] mb-1">Parent Category <span className="text-xs opacity-60">(optional — leave as None for top-level)</span></label>
                   <select value={catForm.parentId} onChange={e => setCatForm({ ...catForm, parentId: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]">
                     <option value="">None (top-level)</option>
                     {categories.filter(c => !c.parentId && c.id !== editingCat?.id).map(c => (
