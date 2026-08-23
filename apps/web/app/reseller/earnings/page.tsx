@@ -52,15 +52,11 @@ export default function EarningsPage() {
   const earnings = useApi<Earning[]>("/reports/earnings");
   const [search, setSearch] = useState("");
 
-  if (customers.loading || earnings.loading) return <LoadingState />;
-  if (customers.error || earnings.error)
-    return <ErrorState message={customers.error ?? earnings.error ?? "Error"} />;
+  const allCustomers = useMemo(() => customers.data ?? [], [customers.data]);
+  const myEarning = useMemo(() => (earnings.data ?? [])[0], [earnings.data]);
 
-  const allCustomers = customers.data ?? [];
-  const myEarning = (earnings.data ?? [])[0];
-
-  const activeCustomers = allCustomers.filter((c) => c.status === "ACTIVE");
-  const suspendedCustomers = allCustomers.filter((c) => c.status === "SUSPENDED");
+  const activeCustomers = useMemo(() => allCustomers.filter((c) => c.status === "ACTIVE"), [allCustomers]);
+  const suspendedCustomers = useMemo(() => allCustomers.filter((c) => c.status === "SUSPENDED"), [allCustomers]);
 
   // Revenue per package
   const revenueByPackage = useMemo(() => {
@@ -84,6 +80,10 @@ export default function EarningsPage() {
       (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q),
     );
   }, [allCustomers, search]);
+
+  if (customers.loading || earnings.loading) return <LoadingState />;
+  if (customers.error || earnings.error)
+    return <ErrorState message={customers.error ?? earnings.error ?? "Error"} />;
 
   const totalMRR = myEarning?.monthlyRevenueCents ?? 0;
   const avgPerCustomer = activeCustomers.length > 0 ? Math.round(totalMRR / activeCustomers.length) : 0;
