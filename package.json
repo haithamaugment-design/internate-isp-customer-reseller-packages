@@ -5,7 +5,7 @@
   "description": "NetMaster — ISP & Customer Reseller Management Platform",
   "scripts": {
     "vercel-build": "node node_modules/prisma/build/index.js generate --schema apps/api/prisma/schema.prisma && npm run build --workspace @netmaster/web && node -e \"const fs=require('fs');fs.rmSync('public',{recursive:true,force:true});fs.cpSync('apps/web/out','public',{recursive:true})\"",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=@netmaster/web",
     "start": "cd apps/web && next start -p ${PORT:-3000} -H 0.0.0.0",
     "build": "turbo run build",
     "lint": "turbo run lint",
