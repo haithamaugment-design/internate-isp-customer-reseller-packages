@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 export const config = {
-  port: Number(process.env.PORT ?? 3001),
+  port: Number(process.env.API_PORT ?? 3001),
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? "dev-access-secret",
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? "dev-refresh-secret",
