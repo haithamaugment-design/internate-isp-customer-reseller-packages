@@ -114,6 +114,12 @@ const STATEMENTS = [
     value JSONB NOT NULL,
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
+
+  // Add adapterType column to router_devices if missing
+  `DO $$ BEGIN
+    ALTER TABLE "router_devices" ADD COLUMN "adapterType" TEXT NOT NULL DEFAULT 'mikrotik';
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$`,
 ];
 
 router.get("/migrate", async (_req: Request, res: Response) => {

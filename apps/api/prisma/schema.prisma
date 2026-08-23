@@ -150,6 +150,7 @@ model Router {
   id           String        @id @default(uuid()) @map("id")
   name         String
   macAddress   String        @unique
+  adapterType  String        @default("mikrotik")
   status       RouterStatus  @default(ACTIVE)
   locationId   String
   location     Location      @relation(fields: [locationId], references: [id])

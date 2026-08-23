@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "../../prisma/client";
 import { AppError } from "../../middleware/errorHandler";
 import { AIEngine, type ConversationState } from "./ai-engine";
@@ -5,6 +6,15 @@ import { AnalyticsEngine, type SalesData } from "./analytics-engine";
 import { AutomationEngine } from "./automation-engine";
 
 const aiEngine = new AIEngine();
+
+function generateVoucherCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let body = "";
+  for (let i = 0; i < 8; i++) {
+    body += alphabet[crypto.randomInt(alphabet.length)];
+  }
+  return `${body.slice(0, 4)}-${body.slice(4)}`;
+}
 
 /** Check if an error indicates a missing table or schema mismatch */
 function isMissingTable(err: unknown): boolean {
@@ -216,24 +226,24 @@ export class BusinessAIService {
         },
       });
 
-      // Get organization for the reseller
-      const org = await prisma.organization.findFirst({
-        where: { id: resellerId },
-      });
-
-      // Create voucher batches for each location plan
       const locationPlans = plan.locationPlans as any[];
       const createdPackages: any[] = [];
+      const createdVouchers: any[] = [];
+
+      // Resolve locations by name to find their IDs and routers
+      const locations = await prisma.location.findMany({
+        where: { organizationId: resellerId },
+        include: { routers: true },
+      });
 
       for (const locPlan of locationPlans) {
+        // Find matching location by name
+        const location = locations.find(l => l.name.toLowerCase() === locPlan.name?.toLowerCase());
+
         // Create packages for this location
         for (const pkg of locPlan.packages || []) {
-          // Check if package already exists
           const existingPkg = await prisma.package.findFirst({
-            where: {
-              organizationId: resellerId,
-              name: pkg.name,
-            },
+            where: { organizationId: resellerId, name: pkg.name },
           });
 
           if (!existingPkg) {
@@ -249,12 +259,37 @@ export class BusinessAIService {
             createdPackages.push(createdPkg);
           }
         }
+
+        // Generate voucher batch for this location
+        const batchSize = locPlan.recommendedVoucherBatchSize || 50;
+        const expiryDays = locPlan.voucherExpiryDays || 7;
+        const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+
+        for (let i = 0; i < batchSize; i++) {
+          const code = generateVoucherCode();
+          try {
+            const voucher = await prisma.voucher.create({
+              data: {
+                code,
+                organizationId: resellerId,
+                locationId: location?.id ?? null,
+                dataGb: null,
+                durationHours: expiryDays * 24,
+                expiresAt,
+              },
+            });
+            createdVouchers.push(voucher);
+          } catch {
+            // Duplicate code — skip and continue
+          }
+        }
       }
 
       return {
         plan,
         createdPackages,
-        message: `Plan "${plan.name}" is now active! ${createdPackages.length} packages created across ${locationPlans.length} locations.`,
+        createdVouchers,
+        message: `Plan "${plan.name}" is now active! Created ${createdPackages.length} packages and ${createdVouchers.length} vouchers across ${locationPlans.length} locations.`,
       };
     } catch (err) {
       if (isMissingTable(err)) {
