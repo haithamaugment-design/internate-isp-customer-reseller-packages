@@ -1,6 +1,6 @@
 "use client";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+const API_BASE = "/api/v1";
 
 const TOKEN_KEY = "netmaster_token";
 const REFRESH_KEY = "netmaster_refresh_token";
