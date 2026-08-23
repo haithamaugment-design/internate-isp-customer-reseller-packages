@@ -6,10 +6,17 @@ import { AutomationEngine } from "./automation-engine";
 
 const aiEngine = new AIEngine();
 
-/** Check if an error indicates a missing table */
+/** Check if an error indicates a missing table or schema mismatch */
 function isMissingTable(err: unknown): boolean {
   const code = (err as { code?: string })?.code;
-  return code === "P2021" || code === "P2002" || (err instanceof Error && err.message.includes("does not exist"));
+  // P2021 = table does not exist
+  // P2022 = column does not exist
+  // P2003 = foreign key constraint failed (parent table missing)
+  // P2025 = record not found (can happen during cascading issues)
+  if (["P2021", "P2022", "P2003"].includes(code || "")) return true;
+  const msg = err instanceof Error ? err.message : "";
+  if (msg.includes("does not exist") || msg.includes("relation does not exist") || msg.includes("column ")) return true;
+  return false;
 }
 
 export interface CreateConversationInput {
