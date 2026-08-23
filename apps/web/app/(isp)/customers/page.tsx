@@ -36,6 +36,8 @@ export default function CustomersPage() {
   const [busy, setBusy] = useState(false);
 
   const customers = useMemo(() => data ?? [], [data]);
+
+  const filtered = useMemo(() => {
     return customers.filter((c) => {
       if (statusFilter && c.status !== statusFilter) return false;
       if (search) {
