@@ -3,6 +3,14 @@ import { prisma } from "../../prisma/client";
 
 const router = Router();
 
+/** Map Prisma fields to frontend-friendly names */
+function toFrontendPost(p: any) {
+  return {
+    ...p,
+    coverImage: p.featuredImage || p.coverImage || null,
+  };
+}
+
 // Categories
 router.get("/categories", async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -56,21 +64,29 @@ router.get("/posts", async (req: Request, res: Response, next: NextFunction) => 
       orderBy: { createdAt: "desc" },
       take: 50,
     });
-    res.json({ data: posts });
+    res.json({ data: posts.map(toFrontendPost) });
   } catch (err) {
     console.error("GET /blog/posts error:", (err as Error)?.message?.substring(0, 200));
     res.json({ data: [] });
   }
 });
 
-router.get("/posts/:id", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/posts/:idOrSlug", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const post = await prisma.blogPost.findUnique({
-      where: { id: req.params.id },
+    const param = req.params.idOrSlug;
+    // Try by id first, then by slug
+    let post = await prisma.blogPost.findUnique({
+      where: { id: param },
       include: { category: true },
-    });
+    }).catch(() => null);
+    if (!post) {
+      post = await prisma.blogPost.findUnique({
+        where: { slug: param },
+        include: { category: true },
+      }).catch(() => null);
+    }
     if (!post) return res.status(404).json({ error: "Post not found" });
-    res.json({ data: post });
+    res.json({ data: toFrontendPost(post) });
   } catch (err) { next(err); }
 });
 
