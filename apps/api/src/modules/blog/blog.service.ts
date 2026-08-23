@@ -8,9 +8,8 @@ function slugify(text: string): string {
 export class BlogService {
   // Categories
   async listCategories() {
-    const categories = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; parentId: string | null; postCount: bigint }[]
-    >(
+    const categories = await prisma.$queryRawUnsafe(
+
       `SELECT c."id", c."name", c."slug", c."description", c."parentId",
               (SELECT COUNT(*)::int FROM "blog_posts" p WHERE p."categoryId" = c."id" AND p."published" = true) as "postCount"
        FROM "blog_categories" c
@@ -19,9 +18,8 @@ export class BlogService {
     );
 
     // Get subcategories
-    const subcategories = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; parentId: string | null; postCount: bigint }[]
-    >(
+    const subcategories = await prisma.$queryRawUnsafe(
+
       `SELECT c."id", c."name", c."slug", c."description", c."parentId",
               (SELECT COUNT(*)::int FROM "blog_posts" p WHERE p."categoryId" = c."id" AND p."published" = true) as "postCount"
        FROM "blog_categories" c
@@ -29,7 +27,7 @@ export class BlogService {
        ORDER BY c."name" ASC`
     );
 
-    return [...categories, ...subcategories].map((c) => ({
+    return [...(categories as { id: string; name: string; slug: string; description: string | null; parentId: string | null; postCount: bigint }[]), ...(subcategories as { id: string; name: string; slug: string; description: string | null; parentId: string | null; postCount: bigint }[])].map((c) => ({
       ...c,
       postCount: Number(c.postCount),
       _count: { posts: Number(c.postCount) },
@@ -74,11 +72,9 @@ export class BlogService {
 
     query += ` ORDER BY p."createdAt" DESC LIMIT 50`;
 
-    const rows = await prisma.$queryRawUnsafe<
-      { id: string; title: string; slug: string; content: string; excerpt: string | null; coverImage: string | null; author: string | null; tags: string | null; linkedProductIds: string | null; published: boolean; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[]
-    >(query, ...params);
+    const rows = await prisma.$queryRawUnsafe(query, ...params) as { id: string; title: string; slug: string; content: string; excerpt: string | null; coverImage: string | null; author: string | null; tags: string | null; linkedProductIds: string | null; published: boolean; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[];
 
-    return rows.map((r) => ({
+    return rows.map((r: { id: string; title: string; slug: string; content: string; excerpt: string | null; coverImage: string | null; author: string | null; tags: string | null; linkedProductIds: string | null; published: boolean; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }) => ({
       id: r.id,
       title: r.title,
       slug: r.slug,
@@ -96,9 +92,7 @@ export class BlogService {
   }
 
   async getPost(slug: string) {
-    const rows = await prisma.$queryRawUnsafe<
-      { id: string; title: string; slug: string; content: string; excerpt: string | null; coverImage: string | null; author: string | null; tags: string | null; linkedProductIds: string | null; published: boolean; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[]
-    >(
+    const rows = await prisma.$queryRawUnsafe(
       `SELECT p."id", p."title", p."slug", p."content", p."excerpt", p."coverImage",
               p."author", p."tags", p."linkedProductIds", p."published", p."categoryId",
               p."createdAt" as "createdAt",
@@ -107,7 +101,7 @@ export class BlogService {
        LEFT JOIN "blog_categories" c ON p."categoryId" = c."id"
        WHERE p."slug" = $1`,
       slug
-    );
+    ) as { id: string; title: string; slug: string; content: string; excerpt: string | null; coverImage: string | null; author: string | null; tags: string | null; linkedProductIds: string | null; published: boolean; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[];
 
     if (rows.length === 0) throw new AppError(404, "Post not found");
     const r = rows[0];

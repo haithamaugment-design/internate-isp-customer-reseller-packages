@@ -8,9 +8,8 @@ function slugify(text: string): string {
 export class ProductsService {
   // Categories
   async listCategories() {
-    const categories = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; parentId: string | null; productCount: bigint }[]
-    >(
+    const categories = await prisma.$queryRawUnsafe(
+
       `SELECT c."id", c."name", c."slug", c."description", c."parentId",
               (SELECT COUNT(*)::int FROM "products" p WHERE p."categoryId" = c."id" AND p."published" = true) as "productCount"
        FROM "product_categories" c
@@ -18,9 +17,8 @@ export class ProductsService {
        ORDER BY c."name" ASC`
     );
 
-    const subcategories = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; parentId: string | null; productCount: bigint }[]
-    >(
+    const subcategories = await prisma.$queryRawUnsafe(
+
       `SELECT c."id", c."name", c."slug", c."description", c."parentId",
               (SELECT COUNT(*)::int FROM "products" p WHERE p."categoryId" = c."id" AND p."published" = true) as "productCount"
        FROM "product_categories" c
@@ -28,7 +26,7 @@ export class ProductsService {
        ORDER BY c."name" ASC`
     );
 
-    return [...categories, ...subcategories].map((c) => ({
+    return [...(categories as { id: string; name: string; slug: string; description: string | null; parentId: string | null; productCount: bigint }[]), ...(subcategories as { id: string; name: string; slug: string; description: string | null; parentId: string | null; productCount: bigint }[])].map((c) => ({
       ...c,
       productCount: Number(c.productCount),
       _count: { products: Number(c.productCount) },
@@ -73,9 +71,7 @@ export class ProductsService {
 
     query += ` ORDER BY p."featured" DESC, p."createdAt" DESC LIMIT 100`;
 
-    const rows = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; price: bigint; comparePrice: bigint | null; imageUrl: string | null; specs: string | null; features: string | null; stock: bigint; published: boolean; featured: boolean; linkedBlogIds: string | null; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[]
-    >(query, ...params);
+    const rows = await prisma.$queryRawUnsafe(query, ...params) as { id: string; name: string; slug: string; description: string | null; price: bigint; comparePrice: bigint | null; imageUrl: string | null; specs: string | null; features: string | null; stock: bigint; published: boolean; featured: boolean; linkedBlogIds: string | null; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[];
 
     return rows.map((r) => ({
       id: r.id,
@@ -98,9 +94,7 @@ export class ProductsService {
   }
 
   async getFeatured() {
-    const rows = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; price: bigint; comparePrice: bigint | null; imageUrl: string | null; stock: bigint; published: boolean; featured: boolean; catId: string | null; catName: string | null; catSlug: string | null }[]
-    >(
+    const rows = await prisma.$queryRawUnsafe(
       `SELECT p."id", p."name", p."slug", p."description", p."price", p."comparePrice",
               p."imageUrl", p."stock", p."published", p."featured",
               c."id" as "catId", c."name" as "catName", c."slug" as "catSlug"
@@ -108,7 +102,7 @@ export class ProductsService {
        LEFT JOIN "product_categories" c ON p."categoryId" = c."id"
        WHERE p."featured" = true AND p."published" = true
        ORDER BY p."createdAt" DESC LIMIT 6`
-    );
+    ) as { id: string; name: string; slug: string; description: string | null; price: bigint; comparePrice: bigint | null; imageUrl: string | null; stock: bigint; published: boolean; featured: boolean; catId: string | null; catName: string | null; catSlug: string | null }[];
 
     return rows.map((r) => ({
       id: r.id, name: r.name, slug: r.slug, description: r.description,
@@ -119,9 +113,7 @@ export class ProductsService {
   }
 
   async getProduct(slug: string) {
-    const rows = await prisma.$queryRawUnsafe<
-      { id: string; name: string; slug: string; description: string | null; price: bigint; comparePrice: bigint | null; imageUrl: string | null; specs: string | null; features: string | null; stock: bigint; published: boolean; featured: boolean; linkedBlogIds: string | null; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[]
-    >(
+    const rows = await prisma.$queryRawUnsafe(
       `SELECT p."id", p."name", p."slug", p."description", p."price", p."comparePrice",
               p."imageUrl", p."specs", p."features", p."stock", p."published", p."featured",
               p."linkedBlogIds", p."categoryId", p."createdAt",
@@ -130,7 +122,7 @@ export class ProductsService {
        LEFT JOIN "product_categories" c ON p."categoryId" = c."id"
        WHERE p."slug" = $1`,
       slug
-    );
+    ) as { id: string; name: string; slug: string; description: string | null; price: bigint; comparePrice: bigint | null; imageUrl: string | null; specs: string | null; features: string | null; stock: bigint; published: boolean; featured: boolean; linkedBlogIds: string | null; categoryId: string | null; createdAt: Date; catId: string | null; catName: string | null; catSlug: string | null }[];
 
     if (rows.length === 0) throw new AppError(404, "Product not found");
     const r = rows[0];

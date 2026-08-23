@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../../prisma/client";
 import { AppError } from "../../middleware/errorHandler";
 import { slaFor } from "../tickets/sla";
-import type { TicketStatus } from "@prisma/client";
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "PENDING_CUSTOMER" | "RESOLVED" | "CLOSED";
 import type {
   CreateCustomerInput,
   CreateRequestInput,

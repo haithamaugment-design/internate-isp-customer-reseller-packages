@@ -1,7 +1,7 @@
 import { prisma } from "../../prisma/client";
 import { AppError } from "../../middleware/errorHandler";
 import { slaFor } from "./sla";
-import type { TicketStatus } from "@prisma/client";
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "PENDING_CUSTOMER" | "RESOLVED" | "CLOSED";
 import type {
   AddCommentInput,
   CreateTicketInput,

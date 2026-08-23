@@ -257,8 +257,8 @@ export class BusinessAIService {
 
     // Filter out system messages for the UI
     const visibleMessages = messages
-      .filter((m) => m.role !== "system")
-      .map((m) => ({
+      .filter((m: { role: string }) => m.role !== "system")
+      .map((m: { id: string; role: string; content: string; metadata: unknown; createdAt: Date }) => ({
         id: m.id,
         role: m.role,
         content: m.content,
@@ -305,31 +305,31 @@ export class BusinessAIService {
       take: 500,
     });
 
-    const salesHistory: SalesData[] = vouchers.map((v) => ({
+    type VoucherRow = { createdAt: Date; locationId: string | null; location?: { name: string } | null };
+    const salesHistory: SalesData[] = (vouchers as VoucherRow[]).map((v) => ({
       date: v.createdAt.toISOString().split("T")[0],
       locationId: v.locationId || undefined,
       locationName: v.location?.name || undefined,
       voucherCount: 1,
-      revenue: 0, // Voucher revenue needs to be tracked separately
+      revenue: 0,
       customers: 1,
     }));
 
-    // Get organization info
     const org = await prisma.organization.findFirst({
       where: { id: resellerId },
     });
 
-    // Get router count
+    type LocationRow = { name: string; routers: { id: string }[] };
     const locations = await prisma.location.findMany({
       where: { organizationId: resellerId },
       include: { routers: { select: { id: true } } },
-    });
-    const totalRouters = locations.reduce((sum, loc) => sum + loc.routers.length, 0);
+    }) as LocationRow[];
+    const totalRouters = locations.reduce((sum: number, loc: LocationRow) => sum + loc.routers.length, 0);
 
-    const locationData = locations.map((loc) => ({
+    const locationData = locations.map((loc: LocationRow) => ({
       name: loc.name,
       routers: loc.routers.length,
-      customers: 10, // Default
+      customers: 10,
     }));
 
     if (!activePlan) {
