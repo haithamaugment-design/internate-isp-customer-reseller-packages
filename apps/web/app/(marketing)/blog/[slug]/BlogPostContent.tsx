@@ -12,7 +12,7 @@ interface BlogPost {
   excerpt?: string;
   coverImage?: string;
   author?: string;
-  tags?: string;
+  tags?: string | string[];
   linkedProductIds?: string;
   published: boolean;
   category?: { id: string; name: string; slug: string };
@@ -168,9 +168,9 @@ export default function BlogPostContent({ slug }: { slug: string }) {
           <div className="text-[var(--text)] leading-relaxed whitespace-pre-wrap">{post.content}</div>
         </article>
 
-        {post.tags && post.tags.length > 0 && (
+        {post.tags && (Array.isArray(post.tags) ? post.tags : post.tags.split(",")).length > 0 && (
           <div className="flex flex-wrap gap-2 mb-8">
-            {post.tags.split(",").map((tag) => (
+            {(Array.isArray(post.tags) ? post.tags : post.tags.split(",")).map((tag) => (
               <span key={tag} className="px-3 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--text-muted)]">{tag.trim()}</span>
             ))}
           </div>
