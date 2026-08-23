@@ -35,12 +35,7 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState<Customer | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} onRetry={reload} />;
-
-  const customers = data ?? [];
-
-  const filtered = useMemo(() => {
+  const customers = useMemo(() => data ?? [], [data]);
     return customers.filter((c) => {
       if (statusFilter && c.status !== statusFilter) return false;
       if (search) {
@@ -54,6 +49,9 @@ export default function CustomersPage() {
       return true;
     });
   }, [customers, search, statusFilter]);
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
 
   const activeCount = customers.filter((c) => c.status === "ACTIVE").length;
   const suspendedCount = customers.filter((c) => c.status === "SUSPENDED").length;

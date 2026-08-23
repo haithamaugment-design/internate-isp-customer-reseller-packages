@@ -40,9 +40,6 @@ export default function AuditPage() {
   const [entityFilter, setEntityFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
 
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} onRetry={reload} />;
-
   const logs = useMemo(() => data ?? [], [data]);
 
   const filtered = useMemo(() => {
@@ -55,6 +52,9 @@ export default function AuditPage() {
 
   const entityTypes = useMemo(() => [...new Set(logs.map((l) => l.entityType))].sort(), [logs]);
   const actions = useMemo(() => [...new Set(logs.map((l) => l.action))].sort(), [logs]);
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
 
   return (
     <div>
