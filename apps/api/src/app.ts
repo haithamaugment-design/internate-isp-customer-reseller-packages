@@ -15,6 +15,8 @@ import ticketRoutes from "./modules/tickets/tickets.routes";
 import notificationRoutes from "./modules/notifications/notifications.routes";
 import cronRoutes from "./modules/cron/cron.routes";
 import subscriptionRoutes from "./modules/subscriptions/subscriptions.routes";
+import blogRoutes from "./modules/blog/blog.routes";
+import productRoutes from "./modules/products/products.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { authRateLimit, apiRateLimit } from "./middleware/rateLimit";
 import { config } from "./config";
@@ -43,6 +45,8 @@ app.use("/api/v1/tickets", apiRateLimit, ticketRoutes);
 app.use("/api/v1/notifications", apiRateLimit, notificationRoutes);
 app.use("/api/v1/cron", cronRoutes);
 app.use("/api/v1/subscriptions", apiRateLimit, subscriptionRoutes);
+app.use("/api/v1/blog", blogRoutes);
+app.use("/api/v1/products", productRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
