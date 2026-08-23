@@ -4,18 +4,18 @@ import { prisma } from "../../prisma/client";
 const router = Router();
 
 const STATEMENTS = [
-  // Blog Categories
+  // Blog Categories — Prisma uses camelCase createdAt/updatedAt (no @map)
   `CREATE TABLE IF NOT EXISTS blog_categories (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     description TEXT,
     "parentId" TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
 
-  // Blog Posts
+  // Blog Posts — Prisma uses camelCase createdAt/updatedAt/featuredImage/categoryId etc
   `CREATE TABLE IF NOT EXISTS blog_posts (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     title TEXT NOT NULL,
@@ -28,26 +28,26 @@ const STATEMENTS = [
     published BOOLEAN NOT NULL DEFAULT false,
     "publishedAt" TIMESTAMPTZ,
     tags TEXT[] DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "createdByUserId" TEXT,
     "updatedByUserId" TEXT
   )`,
 
   `CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON blog_posts(slug)`,
 
-  // Product Categories
+  // Product Categories — Prisma uses camelCase createdAt/updatedAt (no @map)
   `CREATE TABLE IF NOT EXISTS product_categories (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     description TEXT,
     "parentId" TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
 
-  // Products
+  // Products — Prisma uses camelCase createdAt/updatedAt/priceCents etc
   `CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     name TEXT NOT NULL,
@@ -62,8 +62,8 @@ const STATEMENTS = [
     stock INTEGER NOT NULL DEFAULT 0,
     featured BOOLEAN NOT NULL DEFAULT false,
     published BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "createdByUserId" TEXT,
     "updatedByUserId" TEXT
   )`,
@@ -75,10 +75,10 @@ const STATEMENTS = [
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     "blogPostId" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
 
-  // Business Plans
+  // Business Plans — Prisma uses @map("created_at") so snake_case is correct
   `CREATE TABLE IF NOT EXISTS business_plans (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     "resellerId" TEXT NOT NULL,
@@ -112,7 +112,7 @@ const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS site_settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
 ];
 

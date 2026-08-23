@@ -26,12 +26,8 @@ router.post("/categories", async (req: Request, res: Response, next: NextFunctio
       data: { name: name.trim(), slug, description: description || null, parentId: parentId || null },
     });
     res.json({ data: category });
-  } catch (err) {
-    const code = (err as { code?: string })?.code;
-    if (code === "P2021" || code === "P2022") {
-      res.status(503).json({ error: "Product categories table not found. Please run the database migration." });
-      return;
-    }
+  } catch (err: any) {
+    console.error("POST /products/categories error:", err?.code, err?.message?.substring(0, 300));
     next(err);
   }
 });
