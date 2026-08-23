@@ -43,7 +43,7 @@ export default function AuditPage() {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
 
-  const logs = data ?? [];
+  const logs = useMemo(() => data ?? [], [data]);
 
   const filtered = useMemo(() => {
     return logs.filter((l) => {
@@ -53,8 +53,8 @@ export default function AuditPage() {
     });
   }, [logs, entityFilter, actionFilter]);
 
-  const entityTypes = [...new Set(logs.map((l) => l.entityType))].sort();
-  const actions = [...new Set(logs.map((l) => l.action))].sort();
+  const entityTypes = useMemo(() => [...new Set(logs.map((l) => l.entityType))].sort(), [logs]);
+  const actions = useMemo(() => [...new Set(logs.map((l) => l.action))].sort(), [logs]);
 
   return (
     <div>

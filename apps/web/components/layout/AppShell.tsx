@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
@@ -19,15 +19,23 @@ interface AppShellProps {
 
 export function AppShell({ items, accent, brand = "NetMaster", allowedRoles, headerActions, children }: AppShellProps) {
   const router = useRouter();
-  const user = getStoredUser();
+  const [mounted, setMounted] = useState(false);
+  const user = mounted ? getStoredUser() : null;
+  const rolesSet = useMemo(() => new Set(allowedRoles), [allowedRoles]);
 
   useEffect(() => {
-    if (!user || !allowedRoles.includes(user.role)) {
-      router.replace(user ? dashboardPathFor(user.role) : "/login");
-    }
-  }, [user, allowedRoles, router]);
+    setMounted(true);
+  }, []);
 
-  if (!user || !allowedRoles.includes(user.role)) {
+  useEffect(() => {
+    if (!mounted) return;
+    const u = getStoredUser();
+    if (!u || !rolesSet.has(u.role)) {
+      router.replace(u ? dashboardPathFor(u.role) : "/login");
+    }
+  }, [mounted, rolesSet, router]);
+
+  if (!user || !rolesSet.has(user.role)) {
     return null;
   }
 
