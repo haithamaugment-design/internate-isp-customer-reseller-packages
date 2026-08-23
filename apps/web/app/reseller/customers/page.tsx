@@ -43,9 +43,7 @@ export default function CustomersPage() {
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (loading || routers.loading || packages.loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} onRetry={reload} />;
-  const customers = data ?? [];
+  const customers = useMemo(() => data ?? [], [data]);
 
   const filtered = useMemo(() => {
     if (!search) return customers;
@@ -57,6 +55,9 @@ export default function CustomersPage() {
         c.router?.name?.toLowerCase().includes(q),
     );
   }, [customers, search]);
+
+  if (loading || routers.loading || packages.loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
 
   async function createCustomer() {
     setBusy(true);
