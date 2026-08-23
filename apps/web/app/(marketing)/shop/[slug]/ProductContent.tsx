@@ -12,7 +12,7 @@ interface Product {
   price: number;
   comparePrice?: number;
   imageUrl?: string;
-  specs?: string;
+  specs?: string | Record<string, unknown>;
   features?: string;
   stock: number;
   published: boolean;
@@ -89,8 +89,17 @@ const SAMPLE_BLOG_POSTS: BlogPost[] = [
   { id: "bp4", title: "How to Secure Your WiFi Network", slug: "secure-wifi-network-resellers-guide", excerpt: "Essential security measures.", coverImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&q=80" },
 ];
 
-function parseSpecs(specs?: string): Record<string, string> {
+function parseSpecs(specs?: string | Record<string, unknown>): Record<string, string> {
   if (!specs) return {};
+  // If specs is already a parsed object (JSONB from DB), just stringify values
+  if (typeof specs === "object") {
+    const result: Record<string, string> = {};
+    for (const [k, v] of Object.entries(specs)) {
+      result[k] = String(v ?? "");
+    }
+    return result;
+  }
+  // Otherwise parse "Key: Value\nKey2: Value2" format
   const result: Record<string, string> = {};
   specs.split("\n").forEach(line => {
     const idx = line.indexOf(":");

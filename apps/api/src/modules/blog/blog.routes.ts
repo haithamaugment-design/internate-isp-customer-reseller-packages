@@ -11,7 +11,10 @@ router.get("/categories", async (_req: Request, res: Response, next: NextFunctio
       include: { _count: { select: { posts: true } } },
     });
     res.json({ data: categories });
-  } catch { res.json({ data: [] }); }
+  } catch (err) {
+    console.error("GET /blog/categories error:", (err as Error)?.message?.substring(0, 200));
+    res.json({ data: [] });
+  }
 });
 
 router.post("/categories", async (req: Request, res: Response, next: NextFunction) => {
@@ -54,7 +57,10 @@ router.get("/posts", async (req: Request, res: Response, next: NextFunction) => 
       take: 50,
     });
     res.json({ data: posts });
-  } catch { res.json({ data: [] }); }
+  } catch (err) {
+    console.error("GET /blog/posts error:", (err as Error)?.message?.substring(0, 200));
+    res.json({ data: [] });
+  }
 });
 
 router.get("/posts/:id", async (req: Request, res: Response, next: NextFunction) => {
@@ -71,21 +77,35 @@ router.get("/posts/:id", async (req: Request, res: Response, next: NextFunction)
 router.post("/posts", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { title, content, excerpt, author, categoryId, published, tags, linkedProductIds } = req.body;
+    if (!title || !title.trim()) {
+      res.status(400).json({ error: "Title is required" });
+      return;
+    }
+    if (!content || !content.trim()) {
+      res.status(400).json({ error: "Content is required" });
+      return;
+    }
     const slug = (req.body.slug || title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const tagsArray = tags
+      ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : Array.isArray(tags) ? tags : [])
+      : [];
     const post = await prisma.blogPost.create({
       data: {
-        title,
+        title: title.trim(),
         slug,
         content,
         excerpt: excerpt || null,
         featuredImage: req.body.coverImage || null,
         categoryId: categoryId || null,
         published: published ?? false,
-        tags: tags ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()) : tags) : [],
+        tags: tagsArray,
       },
     });
     res.json({ data: post });
-  } catch (err) { next(err); }
+  } catch (err: any) {
+    console.error("POST /blog/posts error:", err?.code, err?.message?.substring(0, 300));
+    next(err);
+  }
 });
 
 router.put("/posts/:id", async (req: Request, res: Response, next: NextFunction) => {
