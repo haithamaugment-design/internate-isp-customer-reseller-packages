@@ -6,8 +6,8 @@ const service = new BusinessAIService();
 export class BusinessAIController {
   async startConversation(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.startConversation(userId, req.body);
+      const auth = (req as any).auth;
+      const result = await service.startConversation(auth?.organizationId || auth?.id, req.body);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -16,8 +16,8 @@ export class BusinessAIController {
 
   async sendMessage(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.sendMessage(userId, req.body);
+      const auth = (req as any).auth;
+      const result = await service.sendMessage(auth?.organizationId || auth?.id, req.body);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -26,9 +26,9 @@ export class BusinessAIController {
 
   async applyPlan(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
+      const auth = (req as any).auth;
       const { planId } = req.params;
-      const result = await service.applyPlan(userId, planId);
+      const result = await service.applyPlan(auth?.organizationId || auth?.id, planId);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -37,8 +37,8 @@ export class BusinessAIController {
 
   async listConversations(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.listConversations(userId);
+      const auth = (req as any).auth;
+      const result = await service.listConversations(auth?.organizationId || auth?.id);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -47,9 +47,9 @@ export class BusinessAIController {
 
   async getConversation(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
+      const auth = (req as any).auth;
       const { planId } = req.params;
-      const result = await service.getConversation(userId, planId);
+      const result = await service.getConversation(auth?.organizationId || auth?.id, planId);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -58,9 +58,9 @@ export class BusinessAIController {
 
   async deleteConversation(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
+      const auth = (req as any).auth;
       const { planId } = req.params;
-      const result = await service.deleteConversation(userId, planId);
+      const result = await service.deleteConversation(auth?.organizationId || auth?.id, planId);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -69,8 +69,8 @@ export class BusinessAIController {
 
   async getInsights(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.getInsights(userId);
+      const auth = (req as any).auth;
+      const result = await service.getInsights(auth?.organizationId || auth?.id);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -79,9 +79,9 @@ export class BusinessAIController {
 
   async getDemandPredictions(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
+      const auth = (req as any).auth;
       const { location } = req.query;
-      const result = await service.getDemandPredictions(userId, location as string | undefined);
+      const result = await service.getDemandPredictions(auth?.organizationId || auth?.id, location as string | undefined);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -90,8 +90,8 @@ export class BusinessAIController {
 
   async getProgressReport(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.getProgressReport(userId);
+      const auth = (req as any).auth;
+      const result = await service.getProgressReport(auth?.organizationId || auth?.id);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -100,8 +100,8 @@ export class BusinessAIController {
 
   async autoAdjustPricing(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.autoAdjustPricing(userId);
+      const auth = (req as any).auth;
+      const result = await service.autoAdjustPricing(auth?.organizationId || auth?.id);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -110,9 +110,9 @@ export class BusinessAIController {
 
   async generateVoucherBatches(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
+      const auth = (req as any).auth;
       const { daysAhead } = req.body || {};
-      const result = await service.generateVoucherBatches(userId, daysAhead || 7);
+      const result = await service.generateVoucherBatches(auth?.organizationId || auth?.id, daysAhead || 7);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -121,9 +121,9 @@ export class BusinessAIController {
 
   async calculateExpansionROI(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
+      const auth = (req as any).auth;
       const { locationName } = req.body;
-      const result = await service.calculateExpansionROI(userId, locationName);
+      const result = await service.calculateExpansionROI(auth?.organizationId || auth?.id, locationName);
       res.json({ data: result });
     } catch (err) {
       next(err);
@@ -132,8 +132,8 @@ export class BusinessAIController {
 
   async getLoadBalancing(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).userId;
-      const result = await service.getLoadBalancing(userId);
+      const auth = (req as any).auth;
+      const result = await service.getLoadBalancing(auth?.organizationId || auth?.id);
       res.json({ data: result });
     } catch (err) {
       next(err);

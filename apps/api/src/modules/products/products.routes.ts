@@ -17,12 +17,23 @@ router.get("/categories", async (_req: Request, res: Response, next: NextFunctio
 router.post("/categories", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, description, parentId } = req.body;
+    if (!name || !name.trim()) {
+      res.status(400).json({ error: "Category name is required" });
+      return;
+    }
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const category = await prisma.productCategory.create({
-      data: { name, slug, description: description || null, parentId: parentId || null },
+      data: { name: name.trim(), slug, description: description || null, parentId: parentId || null },
     });
     res.json({ data: category });
-  } catch (err) { next(err); }
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === "P2021" || code === "P2022") {
+      res.status(503).json({ error: "Product categories table not found. Please run the database migration." });
+      return;
+    }
+    next(err);
+  }
 });
 
 router.delete("/categories/:id", async (req: Request, res: Response, next: NextFunction) => {
