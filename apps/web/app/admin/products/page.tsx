@@ -110,14 +110,24 @@ export default function AdminProductsPage() {
   async function handleSubmitProduct(e: React.FormEvent) {
     e.preventDefault();
     try {
+      const specsObj = form.specs ? form.specs.split("\n").filter(Boolean).reduce((acc, line) => {
+        const [key, ...rest] = line.split(":");
+        if (key) acc[key.trim()] = rest.join(":").trim();
+        return acc;
+      }, {} as Record<string, string>) : null;
+
       const body = {
-        ...form,
+        name: form.name.trim(),
         slug: form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        description: form.description || null,
         price: Math.round(parseFloat(form.price) * 100) || 0,
         comparePrice: form.comparePrice ? Math.round(parseFloat(form.comparePrice) * 100) : undefined,
+        imageUrl: form.imageUrl || null,
+        specs: specsObj,
         stock: parseInt(form.stock) || 0,
-        categoryId: form.categoryId || undefined,
-        linkedBlogIds: form.linkedBlogIds.length > 0 ? form.linkedBlogIds.join(",") : undefined,
+        categoryId: form.categoryId || null,
+        published: form.published,
+        featured: form.featured,
       };
 
       if (editingProduct) {
@@ -129,8 +139,8 @@ export default function AdminProductsPage() {
       setEditingProduct(null);
       resetProductForm();
       loadData();
-    } catch {
-      alert("Failed to save product");
+    } catch (err: any) {
+      alert(err?.message || "Failed to save product");
     }
   }
 
@@ -179,22 +189,23 @@ export default function AdminProductsPage() {
     setCatForm({ name: "", slug: "", description: "", parentId: "" });
   }
 
-  function startEditProduct(product: Product) {
+  function startEditProduct(product: any) {
     setEditingProduct(product);
+    const specsRaw = product.specs ? (typeof product.specs === "string" ? product.specs : Object.entries(product.specs).map(([k, v]) => `${k}: ${v}`).join("\n")) : "";
     setForm({
       name: product.name,
       slug: product.slug,
       description: product.description || "",
-      price: (product.price / 100).toString(),
+      price: product.priceCents ? (product.priceCents / 100).toString() : "",
       comparePrice: product.comparePrice ? (product.comparePrice / 100).toString() : "",
-      imageUrl: product.imageUrl || "",
-      specs: product.specs || "",
-      features: product.features || "",
-      stock: product.stock.toString(),
+      imageUrl: product.images?.[0] || "",
+      specs: specsRaw,
+      features: "",
+      stock: (product.stock ?? 0).toString(),
       categoryId: product.category?.id || "",
       linkedBlogIds: product.linkedBlogIds ? product.linkedBlogIds.split(",").filter(Boolean) : [],
-      published: product.published,
-      featured: product.featured,
+      published: product.published ?? true,
+      featured: product.featured ?? false,
     });
     setShowForm(true);
   }
@@ -344,10 +355,10 @@ export default function AdminProductsPage() {
             <div className="text-center py-12 text-[var(--text-muted)]">No products yet.</div>
           ) : (
             <div className="space-y-3">
-              {filteredProducts.map(product => (
+              {filteredProducts.map((product: any) => (
                 <div key={product.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 flex items-center gap-4">
-                  {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.name} className="w-16 h-16 rounded-xl object-cover bg-[var(--bg)]" />
+                  {product.images?.[0] ? (
+                    <img src={product.images[0]} alt={product.name} className="w-16 h-16 rounded-xl object-cover bg-[var(--bg)]" />
                   ) : (
                     <div className="w-16 h-16 rounded-xl bg-[var(--bg)] flex items-center justify-center text-[var(--text-muted)] text-xs">No img</div>
                   )}
@@ -361,13 +372,9 @@ export default function AdminProductsPage() {
                       {product.category && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)]">{product.category.name}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-sm">
-                      <span className="font-semibold text-[var(--text)]">{(product.price / 100).toLocaleString()} TZS</span>
-                      {product.comparePrice && product.comparePrice > product.price && (
-                        <span className="text-[var(--text-muted)] line-through">{(product.comparePrice / 100).toLocaleString()} TZS</span>
-                      )}
+                      <span className="font-semibold text-[var(--text)]">{((product.priceCents || 0) / 100).toLocaleString()} TZS</span>
                       <span className="text-[var(--text-muted)]">Stock: {product.stock}</span>
                     </div>
-                    {product.linkedBlogIds && <p className="text-xs text-[var(--accent)] mt-1">Linked to {product.linkedBlogIds.split(",").length} blog post(s)</p>}
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => startEditProduct(product)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)]">Edit</button>
