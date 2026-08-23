@@ -50,5 +50,5 @@ export function rateLimit(windowMs: number, maxRequests: number) {
 }
 
 // Pre-configured rate limiters for different endpoint types
-export const authRateLimit = rateLimit(15 * 60 * 1000, 20); // 20 requests per 15 minutes for auth
+export const authRateLimit = rateLimit(15 * 60 * 1000, 50); // 50 requests per 15 minutes for auth
 export const apiRateLimit = rateLimit(60 * 1000, 100); // 100 requests per minute for general API
