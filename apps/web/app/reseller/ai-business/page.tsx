@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -32,30 +33,6 @@ export default function AIBusinessPartnerPage() {
   const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
-
-  const getToken = () => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("netmaster_access_token");
-    }
-    return null;
-  };
-
-  const apiCall = async (path: string, options?: RequestInit) => {
-    const token = getToken();
-    const res = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options?.headers,
-      },
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "API error");
-    return data.data;
-  };
-
   // Load conversations
   useEffect(() => {
     loadConversations();
@@ -67,7 +44,7 @@ export default function AIBusinessPartnerPage() {
 
   const loadConversations = async () => {
     try {
-      const data = await apiCall("/business-ai/conversations");
+      const data = await api.get<any[]>("/business-ai/conversations");
       setConversations(data);
     } catch (err) {
       console.error("Failed to load conversations:", err);
@@ -77,9 +54,8 @@ export default function AIBusinessPartnerPage() {
   const startNewConversation = async () => {
     setLoading(true);
     try {
-      const data = await apiCall("/business-ai/conversations", {
-        method: "POST",
-        body: JSON.stringify({ name: `Business Plan - ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}` }),
+      const data = await api.post<any>("/business-ai/conversations", {
+        name: `Business Plan - ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}`,
       });
 
       const newConv = {
@@ -101,7 +77,7 @@ export default function AIBusinessPartnerPage() {
 
   const loadConversation = async (planId: string) => {
     try {
-      const data = await apiCall(`/business-ai/conversations/${planId}`);
+      const data = await api.get<any>(`/business-ai/conversations/${planId}`);
       setActiveConversation(planId);
       setCurrentPlan(data.plan);
       setMessages(data.messages);
@@ -123,9 +99,8 @@ export default function AIBusinessPartnerPage() {
     setLoading(true);
 
     try {
-      const data = await apiCall("/business-ai/chat", {
-        method: "POST",
-        body: JSON.stringify({ conversationId: activeConversation, message }),
+      const data = await api.post<any>("/business-ai/chat", {
+        conversationId: activeConversation, message,
       });
 
       const aiMsg: Message = {
@@ -163,8 +138,7 @@ export default function AIBusinessPartnerPage() {
   };
 
   const applyPlan = async (planId: string) => {
-    try {
-      const data = await apiCall(`/business-ai/plans/${planId}/apply`, { method: "POST" });
+    try {        const data = await api.post<any>(`/business-ai/plans/${planId}/apply`);
       setMessages((prev) => [
         ...prev,
         { id: "applied", role: "assistant", content: data.message },
@@ -176,8 +150,7 @@ export default function AIBusinessPartnerPage() {
   };
 
   const deleteConversation = async (planId: string) => {
-    try {
-      await apiCall(`/business-ai/conversations/${planId}`, { method: "DELETE" });
+    try {        await api.del(`/business-ai/conversations/${planId}`);
       setConversations((prev) => prev.filter((c) => c.id !== planId));
       if (activeConversation === planId) {
         setActiveConversation(null);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 interface PricingAdjustment {
   locationName: string;
@@ -50,33 +51,15 @@ export default function AIAutomationPage() {
   const [expansionName, setExpansionName] = useState("");
   const [generating, setGenerating] = useState(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
-  const getToken = () => typeof window !== "undefined" ? localStorage.getItem("netmaster_access_token") : null;
-
-  const apiCall = async (path: string, options?: RequestInit) => {
-    const token = getToken();
-    const res = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options?.headers,
-      },
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "API error");
-    return data.data;
-  };
-
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
     setLoading(true);
     try {
       const [p, v, lb] = await Promise.all([
-        apiCall("/business-ai/auto-pricing").catch(() => []),
-        apiCall("/business-ai/generate-vouchers", { method: "POST", body: JSON.stringify({ daysAhead: 7 }) }).catch(() => []),
-        apiCall("/business-ai/load-balancing").catch(() => []),
+        api.get<PricingAdjustment[]>("/business-ai/auto-pricing").catch(() => []),
+        api.post<VoucherBatch[]>("/business-ai/generate-vouchers", { daysAhead: 7 }).catch(() => []),
+        api.get<LoadBalance[]>("/business-ai/load-balancing").catch(() => []),
       ]);
       setPricing(p || []);
       setVouchers(v || []);
@@ -91,9 +74,8 @@ export default function AIAutomationPage() {
     if (!expansionName.trim()) return;
     setGenerating(true);
     try {
-      const result = await apiCall("/business-ai/expansion-roi", {
-        method: "POST",
-        body: JSON.stringify({ locationName: expansionName }),
+      const result = await api.post<ExpansionROI>("/business-ai/expansion-roi", {
+        locationName: expansionName,
       });
       setRoi(result);
     } catch (err) {
@@ -152,7 +134,6 @@ export default function AIAutomationPage() {
         <button onClick={loadAll} className="px-4 py-2 rounded-lg text-sm font-medium border border-[var(--border-subtle)] hover:bg-[var(--bg-surface)]">🔄 Refresh</button>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 border-b border-[var(--border-subtle)] pb-2 flex-wrap">
         {[
           { key: "pricing", label: "💰 Auto-Pricing" },
@@ -167,7 +148,6 @@ export default function AIAutomationPage() {
         ))}
       </div>
 
-      {/* Auto-Pricing Tab */}
       {activeTab === "pricing" && (
         <div className="space-y-4">
           {pricing.length === 0 ? (
@@ -184,10 +164,8 @@ export default function AIAutomationPage() {
                     <div className="text-center"><div className="text-xs text-[var(--text-muted)]">Current</div><div className="text-lg font-bold text-[var(--text-primary)]">{p.currentPrice.toLocaleString()} TZS</div></div>
                     <div className="text-2xl text-[var(--text-muted)]">→</div>
                     <div className="text-center"><div className="text-xs text-[var(--text-muted)]">Suggested</div><div className="text-lg font-bold text-emerald-400">{p.suggestedPrice.toLocaleString()} TZS</div></div>
-                    <div className="text-center"><div className="text-xs text-[var(--text-muted)]">Change</div><div className={`text-lg font-bold ${p.suggestedPrice > p.currentPrice ? "text-emerald-400" : "text-red-400"}`}>{p.suggestedPrice > p.currentPrice ? "+" : ""}{(p.suggestedPrice - p.currentPrice).toLocaleString()} TZS</div></div>
                   </div>
                   <p className="text-sm text-[var(--text-secondary)]">{p.reason}</p>
-                  {p.expectedImpact && <p className="text-xs text-[var(--accent-primary)] mt-1">💡 {p.expectedImpact}</p>}
                 </div>
               ))}
             </div>
@@ -195,39 +173,30 @@ export default function AIAutomationPage() {
         </div>
       )}
 
-      {/* Voucher Batches Tab */}
       {activeTab === "vouchers" && (
         <div className="space-y-4">
           {vouchers.length === 0 ? (
             <div className="text-center py-12"><div className="text-5xl mb-4">🎫</div><h3 className="text-lg font-semibold text-[var(--text-primary)]">No Voucher Batches Generated</h3><p className="text-[var(--text-muted)]">Create and activate a business plan to auto-generate vouchers.</p></div>
           ) : (
-            <>
-              <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
-                <h3 className="font-bold text-[var(--text-primary)] mb-2">📋 Generated Batches (7 days ahead)</h3>
-                <p className="text-sm text-[var(--text-muted)]">{vouchers.length} batches across {new Set(vouchers.map((v) => v.locationName)).size} locations</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {vouchers.map((v, i) => (
-                  <div key={i} className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-[var(--text-primary)] text-sm">{v.packageName}</h4>
-                      <span className="text-xs text-[var(--text-muted)]">{v.locationName}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div><div className="text-xs text-[var(--text-muted)]">Count</div><div className="text-lg font-bold text-[var(--text-primary)]">{v.count}</div></div>
-                      <div><div className="text-xs text-[var(--text-muted)]">Price</div><div className="text-lg font-bold text-emerald-400">{v.price.toLocaleString()}</div></div>
-                      <div><div className="text-xs text-[var(--text-muted)]">Duration</div><div className="text-lg font-bold text-[var(--text-primary)]">{v.durationHours}h</div></div>
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)] mt-2">Expires: {new Date(v.expiresAt).toLocaleDateString()}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {vouchers.map((v, i) => (
+                <div key={i} className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-[var(--text-primary)] text-sm">{v.packageName}</h4>
+                    <span className="text-xs text-[var(--text-muted)]">{v.locationName}</span>
                   </div>
-                ))}
-              </div>
-            </>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div><div className="text-xs text-[var(--text-muted)]">Count</div><div className="text-lg font-bold text-[var(--text-primary)]">{v.count}</div></div>
+                    <div><div className="text-xs text-[var(--text-muted)]">Price</div><div className="text-lg font-bold text-emerald-400">{v.price.toLocaleString()}</div></div>
+                    <div><div className="text-xs text-[var(--text-muted)]">Duration</div><div className="text-lg font-bold text-[var(--text-primary)]">{v.durationHours}h</div></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {/* Expansion ROI Tab */}
       {activeTab === "expansion" && (
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
@@ -241,14 +210,12 @@ export default function AIAutomationPage() {
               </button>
             </div>
           </div>
-
           {roi && (
             <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-[var(--text-primary)] text-lg">📍 {roi.locationName}</h3>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getRiskColor(roi.riskLevel)}`}>{roi.riskLevel} risk</span>
               </div>
-
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-center">
                   <div className="text-xs text-emerald-400">Est. Monthly Revenue</div>
@@ -263,29 +230,16 @@ export default function AIAutomationPage() {
                   <div className="text-xl font-bold text-blue-400">{roi.estimatedMonthlyProfit.toLocaleString()} TZS</div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="p-3 rounded-lg bg-[var(--bg-surface)]"><div className="text-xs text-[var(--text-muted)]">Payback Period</div><div className="text-lg font-bold text-[var(--text-primary)]">{roi.paybackDays} days</div></div>
-                <div className="p-3 rounded-lg bg-[var(--bg-surface)]"><div className="text-xs text-[var(--text-muted)]">Recommended Router</div><div className="text-lg font-bold text-[var(--text-primary)]">{roi.recommendedRouter.name}</div><div className="text-xs text-[var(--text-muted)]">{roi.recommendedRouter.price.toLocaleString()} TZS</div></div>
-              </div>
-
               <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{roi.reasoning}</p>
-
-              {roi.recommendedRouter.features.length > 0 && (
-                <div className="mt-3"><div className="text-xs text-[var(--text-muted)] mb-1">Router Features:</div>
-                  <div className="flex flex-wrap gap-1">{roi.recommendedRouter.features.map((f, i) => <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)]">{f}</span>)}</div>
-                </div>
-              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Load Balancing Tab */}
       {activeTab === "loadbalance" && (
         <div className="space-y-4">
           {loadBalance.length === 0 ? (
-            <div className="text-center py-12"><div className="text-5xl mb-4">⚖️</div><h3 className="text-lg font-semibold text-[var(--text-primary)]">No Locations to Balance</h3><p className="text-[var(--text-muted)]">Add locations and routers to get load balancing recommendations.</p></div>
+            <div className="text-center py-12"><div className="text-5xl mb-4">⚖️</div><h3 className="text-lg font-semibold text-[var(--text-primary)]">No Locations to Balance</h3></div>
           ) : (
             <div className="space-y-3">
               {loadBalance.map((lb, i) => (
@@ -294,20 +248,6 @@ export default function AIAutomationPage() {
                     <h3 className="font-bold text-[var(--text-primary)]">📍 {lb.locationName}</h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getActionColor(lb.suggestedAction)}`}>{getActionLabel(lb.suggestedAction)}</span>
                   </div>
-
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs text-[var(--text-muted)] mb-1">
-                      <span>Capacity: {lb.currentLoad}%</span>
-                      <span>{lb.maxCapacity} max customers</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[var(--bg-surface)] overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{
-                        width: `${Math.min(100, lb.currentLoad)}%`,
-                        background: lb.currentLoad > 80 ? "linear-gradient(90deg, #FF453A, #FF6B62)" : lb.currentLoad > 50 ? "linear-gradient(90deg, #FF9F0A, #FFC24D)" : "linear-gradient(90deg, #00C853, #00E676)",
-                      }} />
-                    </div>
-                  </div>
-
                   <p className="text-sm text-[var(--text-secondary)]">{lb.reasoning}</p>
                 </div>
               ))}
