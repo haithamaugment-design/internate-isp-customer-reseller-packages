@@ -18,6 +18,7 @@ import subscriptionRoutes from "./modules/subscriptions/subscriptions.routes";
 import blogRoutes from "./modules/blog/blog.routes";
 import productRoutes from "./modules/products/products.routes";
 import businessAiRoutes from "./modules/business-ai/business-ai.routes";
+import setupRoutes from "./modules/setup/setup.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { authRateLimit, apiRateLimit } from "./middleware/rateLimit";
 import { config } from "./config";
@@ -49,6 +50,7 @@ app.use("/api/v1/subscriptions", apiRateLimit, subscriptionRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/business-ai", businessAiRoutes);
+app.use("/api/v1/setup", setupRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
