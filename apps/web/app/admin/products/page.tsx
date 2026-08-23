@@ -41,7 +41,7 @@ interface BlogPost {
 type Tab = "products" | "categories";
 
 export default function AdminProductsPage() {
-  const user = getStoredUser();
+  const [user] = useState(() => getStoredUser());
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("products");
   const [products, setProducts] = useState<Product[]>([]);
