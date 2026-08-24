@@ -185,7 +185,7 @@ export class BusinessAIService {
               action: null,
               plan: bedrockResponse.planData || null,
               engine: "bedrock",
-            },
+            } as any,
           },
         });
 

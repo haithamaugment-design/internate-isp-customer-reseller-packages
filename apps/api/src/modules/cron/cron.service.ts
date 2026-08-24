@@ -26,7 +26,7 @@ export class CronService {
 
     for (const sub of expiredSubscriptions) {
       try {
-        await prisma.$transaction(async (tx: typeof prisma) => {
+        await prisma.$transaction(async (tx: any) => {
           // Suspend the customer
           await tx.customer.update({
             where: { id: sub.customerId },

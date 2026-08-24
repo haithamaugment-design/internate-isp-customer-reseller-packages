@@ -48,7 +48,7 @@ describe("CustomersService.create", () => {
     vi.mocked(prisma.package.findFirst).mockResolvedValue({ id: "pkg-1" } as never);
     vi.mocked(prisma.subscription.create).mockResolvedValue({} as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
-    vi.mocked(prisma.$transaction).mockImplementation(async (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma as never) as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: (tx: any) => Promise<unknown>) => callback(prisma as never) as never);
 
     await service.create(
       { name: "New", phone: "255700000000", routerId: "router-1", packageId: "pkg-1" },
@@ -85,7 +85,7 @@ describe("CustomersService.redeemVoucher", () => {
     vi.mocked(prisma.voucher.findFirst).mockResolvedValue({ id: "v-1", status: "UNUSED" } as never);
     vi.mocked(prisma.voucher.update).mockResolvedValue({ id: "v-1", status: "USED" } as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
-    vi.mocked(prisma.$transaction).mockImplementation(async (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma as never) as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: (tx: any) => Promise<unknown>) => callback(prisma as never) as never);
 
     const result = await service.redeemVoucher("cust-1", { code: "ABCD-1234" });
 
