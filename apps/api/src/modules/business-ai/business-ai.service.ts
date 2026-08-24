@@ -4,6 +4,11 @@ import { AppError } from "../../middleware/errorHandler";
 import { AIEngine, type ConversationState } from "./ai-engine";
 import { AnalyticsEngine, type SalesData } from "./analytics-engine";
 import { AutomationEngine } from "./automation-engine";
+import {
+  bedrockChat,
+  isBedrockConfigured,
+  type BedrockMessage,
+} from "./bedrock-llm";
 
 const aiEngine = new AIEngine();
 
@@ -77,34 +82,52 @@ export class BusinessAIService {
         },
       });
 
-      // Get the first AI question
-      const { response, newState } = aiEngine.processMessage(state, "");
+      let aiMessage: string;
+      let aiOptions: string[] | undefined;
+      let aiType: string;
+
+      if (isBedrockConfigured()) {
+        // Use AWS Bedrock LLM for intelligent conversation
+        const bedrockResponse = await bedrockChat([
+          { role: "user", content: "Habari! Nataka kuanza biashara yangu ya internet. Nisaidie kupanga." },
+        ]);
+        aiMessage = bedrockResponse.text;
+        aiOptions = undefined; // LLM generates free-form responses
+        aiType = "suggestion";
+      } else {
+        // Fallback to rule-based engine
+        const { response, newState } = aiEngine.processMessage(state, "");
+        aiMessage = response.message + (response.question ? "\n\n" + response.question : "");
+        aiOptions = response.options;
+        aiType = response.type;
+
+        // Save updated state
+        await prisma.businessPlanMessage.create({
+          data: {
+            planId: plan.id,
+            role: "system",
+            content: JSON.stringify(newState),
+            metadata: { type: "state_update" },
+          },
+        });
+      }
 
       // Save AI greeting
       await prisma.businessPlanMessage.create({
         data: {
           planId: plan.id,
           role: "assistant",
-          content: response.message + (response.question ? "\n\n" + response.question : ""),
-          metadata: { type: response.type, options: response.options || [] },
-        },
-      });
-
-      // Save updated state
-      await prisma.businessPlanMessage.create({
-        data: {
-          planId: plan.id,
-          role: "system",
-          content: JSON.stringify(newState),
-          metadata: { type: "state_update" },
+          content: aiMessage,
+          metadata: { type: aiType, options: aiOptions || [], engine: isBedrockConfigured() ? "bedrock" : "rule-based" },
         },
       });
 
       return {
         plan,
-        message: response.message + (response.question ? "\n\n" + response.question : ""),
-        options: response.options,
-        type: response.type,
+        message: aiMessage,
+        options: aiOptions,
+        type: aiType,
+        engine: isBedrockConfigured() ? "bedrock" : "rule-based",
       };
     } catch (err) {
       if (isMissingTable(err)) {
@@ -125,16 +148,6 @@ export class BusinessAIService {
       });
       if (!plan) throw new AppError(404, "Conversation not found");
 
-      // Get last state from messages
-      const lastStateMsg = await prisma.businessPlanMessage.findFirst({
-        where: { planId: plan.id, role: "system" },
-        orderBy: { createdAt: "desc" },
-      });
-
-      const state: ConversationState = lastStateMsg
-        ? JSON.parse(lastStateMsg.content)
-        : { step: 0, answers: {}, planGenerated: false };
-
       // Save user message
       await prisma.businessPlanMessage.create({
         data: {
@@ -145,7 +158,73 @@ export class BusinessAIService {
         },
       });
 
-      // Process with AI
+      if (isBedrockConfigured()) {
+        // Use AWS Bedrock LLM — build conversation context from DB
+        const allMessages = await prisma.businessPlanMessage.findMany({
+          where: { planId: plan.id, role: { in: ["user", "assistant"] } },
+          orderBy: { createdAt: "asc" },
+          take: 20, // Last 20 messages for context
+        });
+
+        const bedrockMessages: BedrockMessage[] = allMessages.map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
+
+        const bedrockResponse = await bedrockChat(bedrockMessages);
+
+        // Save AI response
+        await prisma.businessPlanMessage.create({
+          data: {
+            planId: plan.id,
+            role: "assistant",
+            content: bedrockResponse.text,
+            metadata: {
+              type: bedrockResponse.planData ? "plan" : "suggestion",
+              options: [],
+              action: null,
+              plan: bedrockResponse.planData || null,
+              engine: "bedrock",
+            },
+          },
+        });
+
+        // If Bedrock generated a structured plan, save it
+        if (bedrockResponse.planData) {
+          const pd = bedrockResponse.planData;
+          await prisma.businessPlan.update({
+            where: { id: plan.id },
+            data: {
+              name: plan.name,
+              monthlyProfitTarget: (pd.profitTarget as number) || 0,
+              monthlyRevenueTarget: (pd.revenueTarget as number) || 0,
+              totalCosts: (pd.totalCosts as number) || 0,
+              costs: (pd.costs as object) || {},
+              locationPlans: (pd.locationPlans as any[]) || [],
+            },
+          });
+        }
+
+        return {
+          message: bedrockResponse.text,
+          options: [],
+          type: bedrockResponse.planData ? "plan" : "suggestion",
+          metadata: bedrockResponse.planData || null,
+          engine: "bedrock",
+        };
+      }
+
+      // Fallback to rule-based engine
+      const lastStateMsg = await prisma.businessPlanMessage.findFirst({
+        where: { planId: plan.id, role: "system" },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const state: ConversationState = lastStateMsg
+        ? JSON.parse(lastStateMsg.content)
+        : { step: 0, answers: {}, planGenerated: false };
+
+      // Process with rule-based AI
       const { response, newState } = aiEngine.processMessage(state, input.message);
 
       // Save AI response
@@ -159,6 +238,7 @@ export class BusinessAIService {
             options: response.options || [],
             action: (response.metadata as any)?.action || null,
             plan: response.metadata && response.type === "plan" ? JSON.parse(JSON.stringify(response.metadata)) : null,
+            engine: "rule-based",
           },
         },
       });
@@ -194,6 +274,7 @@ export class BusinessAIService {
         options: response.options,
         type: response.type,
         metadata: response.metadata,
+        engine: "rule-based",
       };
     } catch (err) {
       if (isMissingTable(err)) {
@@ -238,7 +319,7 @@ export class BusinessAIService {
 
       for (const locPlan of locationPlans) {
         // Find matching location by name
-        const location = locations.find(l => l.name.toLowerCase() === locPlan.name?.toLowerCase());
+        const location = locations.find((l: { name: string }) => l.name.toLowerCase() === locPlan.name?.toLowerCase());
 
         // Create packages for this location
         for (const pkg of locPlan.packages || []) {
@@ -494,7 +575,7 @@ export class BusinessAIService {
         take: 500,
       });
 
-      const salesHistory: SalesData[] = vouchers.map((v) => ({
+      const salesHistory: SalesData[] = vouchers.map((v: { createdAt: Date; locationId: string | null; location?: { name: string } | null }) => ({
         date: v.createdAt.toISOString().split("T")[0],
         locationId: v.locationId || undefined,
         locationName: v.location?.name || undefined,
@@ -508,7 +589,7 @@ export class BusinessAIService {
         include: { routers: { select: { id: true } } },
       });
 
-      const locationData = locations.map((loc) => ({
+      const locationData = locations.map((loc: { name: string; routers: { id: string }[] }) => ({
         name: loc.name,
         routers: loc.routers.length,
         customers: 10,
@@ -521,7 +602,7 @@ export class BusinessAIService {
         where: { organizationId: resellerId },
       });
 
-      const currentPackages = packages.map((p) => ({
+      const currentPackages = packages.map((p: { name: string; priceCents: number }) => ({
         name: p.name,
         price: p.priceCents,
         locationName: undefined,
@@ -560,7 +641,7 @@ export class BusinessAIService {
         take: 500,
       });
 
-      const salesHistory: SalesData[] = vouchers.map((v) => ({
+      const salesHistory: SalesData[] = vouchers.map((v: { createdAt: Date; locationId: string | null; location?: { name: string } | null }) => ({
         date: v.createdAt.toISOString().split("T")[0],
         locationId: v.locationId || undefined,
         locationName: v.location?.name || undefined,
@@ -574,7 +655,7 @@ export class BusinessAIService {
         include: { routers: { select: { id: true } } },
       });
 
-      const locationData = locations.map((loc) => ({
+      const locationData = locations.map((loc: { name: string; routers: { id: string }[] }) => ({
         name: loc.name,
         routers: loc.routers.length,
         customers: 10,
@@ -613,7 +694,7 @@ export class BusinessAIService {
         take: 500,
       });
 
-      const salesHistory: SalesData[] = vouchers.map((v) => ({
+      const salesHistory: SalesData[] = vouchers.map((v: { createdAt: Date; locationId: string | null; location?: { name: string } | null }) => ({
         date: v.createdAt.toISOString().split("T")[0],
         locationId: v.locationId || undefined,
         locationName: v.location?.name || undefined,
@@ -627,7 +708,7 @@ export class BusinessAIService {
         include: { routers: { select: { id: true } } },
       });
 
-      const locationData = locations.map((loc) => ({
+      const locationData = locations.map((loc: { name: string; routers: { id: string }[] }) => ({
         name: loc.name,
         routers: loc.routers.length,
         customers: 10,
@@ -651,7 +732,7 @@ export class BusinessAIService {
         take: 10,
       });
 
-      const routerOptions = products.map((p) => ({
+      const routerOptions = products.map((p: { name: string; priceCents: number; specs: unknown }) => ({
         name: p.name,
         price: p.priceCents,
         features: (p.specs as any)?.features || ["Basic routing"],
@@ -693,10 +774,10 @@ export class BusinessAIService {
 
       const now = new Date();
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      const monthVouchers = vouchers.filter((v) => v.createdAt.toISOString() >= monthStart);
+      const monthVouchers = vouchers.filter((v: { createdAt: Date; location?: { name: string } | null }) => v.createdAt.toISOString() >= monthStart);
 
-      const locationData = locations.map((loc) => {
-        const locVouchers = monthVouchers.filter((v) => v.location?.name === loc.name);
+      const locationData = locations.map((loc: { name: string; routers: { id: string }[] }) => {
+        const locVouchers = monthVouchers.filter((v: { location?: { name: string } | null }) => v.location?.name === loc.name);
         return {
           name: loc.name,
           routers: loc.routers.length,
@@ -729,7 +810,7 @@ export class BusinessAIService {
         take: 500,
       });
 
-      const salesHistory: SalesData[] = vouchers.map((v) => ({
+      const salesHistory: SalesData[] = vouchers.map((v: { createdAt: Date; locationId: string | null; location?: { name: string } | null }) => ({
         date: v.createdAt.toISOString().split("T")[0],
         locationId: v.locationId || undefined,
         locationName: v.location?.name || undefined,
@@ -744,8 +825,8 @@ export class BusinessAIService {
       });
 
       const locationData = locations
-        .filter((loc) => !locationName || loc.name === locationName)
-        .map((loc) => ({
+        .filter((loc: { name: string }) => !locationName || loc.name === locationName)
+        .map((loc: { name: string; routers: { id: string }[] }) => ({
           name: loc.name,
           routers: loc.routers.length,
           customers: 10,
@@ -783,7 +864,7 @@ export class BusinessAIService {
         take: 500,
       });
 
-      const salesHistory: SalesData[] = vouchers.map((v) => ({
+      const salesHistory: SalesData[] = vouchers.map((v: { createdAt: Date; locationId: string | null; location?: { name: string } | null }) => ({
         date: v.createdAt.toISOString().split("T")[0],
         locationId: v.locationId || undefined,
         locationName: v.location?.name || undefined,

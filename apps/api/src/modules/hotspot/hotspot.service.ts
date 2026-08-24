@@ -54,13 +54,13 @@ export class HotspotService {
       router: location.routers[0]
         ? { id: location.routers[0].id, name: location.routers[0].name, status: location.routers[0].status }
         : null,
-      vouchers: vouchers.map((voucher) => ({
+      vouchers: vouchers.map((voucher: { id: string; dataGb: number | null; durationHours: number | null; expiresAt: Date | null }) => ({
         id: voucher.id,
         dataGb: voucher.dataGb,
         durationHours: voucher.durationHours,
         expiresAt: voucher.expiresAt,
       })),
-      packages: packages.map((pack) => ({
+      packages: packages.map((pack: { id: string; name: string; speedMbps: number; dataCapGb: number | null; priceCents: number; currency: string }) => ({
         id: pack.id,
         name: pack.name,
         speedMbps: pack.speedMbps,

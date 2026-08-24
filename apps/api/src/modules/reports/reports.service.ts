@@ -4,7 +4,7 @@ export class ReportsService {
   async auditLogs(orgIds: string[]) {
     const users = await prisma.user.findMany({ where: { organizationId: { in: orgIds } }, select: { id: true } });
     return prisma.auditLog.findMany({
-      where: { actorUserId: { in: users.map((user) => user.id) } },
+      where: { actorUserId: { in: users.map((user: { id: string }) => user.id) } },
       orderBy: { createdAt: "desc" },
       take: 100,
     });

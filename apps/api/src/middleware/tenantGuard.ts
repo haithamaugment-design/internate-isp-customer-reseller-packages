@@ -31,7 +31,7 @@ export function tenantGuard(req: Request, res: Response, next: NextFunction): vo
   }
   if (req.auth.organizationId && req.auth.role !== "PLATFORM_OWNER") {
     prisma.organization.findUnique({ where: { id: req.auth.organizationId }, select: { status: true } })
-      .then((org) => {
+      .then((org: { status: string } | null) => {
         if (!org || org.status !== "ACTIVE") {
           res.status(403).json({ error: "Organization is not active" });
           return;

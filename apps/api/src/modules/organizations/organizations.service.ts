@@ -131,13 +131,13 @@ export class OrganizationsService {
       },
     });
 
-    return locations.map((loc) => {
+    return locations.map((loc: { id: string; name: string; address: string | null; routers: { status: string; _count: { customers: number }; customers: { subscription?: { package?: { priceCents: number } | null } | null }[] }[]; vouchers: { id: string }[] }) => {
       const totalRouters = loc.routers.length;
-      const activeRouters = loc.routers.filter((r) => r.status === "ACTIVE").length;
-      const totalCustomers = loc.routers.reduce((sum, r) => sum + r._count.customers, 0);
-      const activeCustomers = loc.routers.reduce((sum, r) => sum + r.customers.length, 0);
+      const activeRouters = loc.routers.filter((r: { status: string }) => r.status === "ACTIVE").length;
+      const totalCustomers = loc.routers.reduce((sum: number, r: { _count: { customers: number } }) => sum + r._count.customers, 0);
+      const activeCustomers = loc.routers.reduce((sum: number, r: { customers: { subscription?: { package?: { priceCents: number } | null } | null }[] }) => sum + r.customers.length, 0);
       const mrrCents = loc.routers.reduce(
-        (sum, r) => sum + r.customers.reduce((s, c) => s + (c.subscription?.package?.priceCents ?? 0), 0),
+        (sum: number, r: { customers: { subscription?: { package?: { priceCents: number } | null } | null }[] }) => sum + r.customers.reduce((s: number, c: { subscription?: { package?: { priceCents: number } | null } | null }) => s + (c.subscription?.package?.priceCents ?? 0), 0),
         0,
       );
       const unusedVouchers = loc.vouchers.length;

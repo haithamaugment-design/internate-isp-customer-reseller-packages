@@ -21,7 +21,7 @@ export class CustomersService {
     const email = input.email ?? `${input.phone.replace(/\D/g, "")}@customer.netmaster.local`;
     const password = input.password ?? "changeme123";
     const passwordHash = await bcrypt.hash(password, 10);
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: typeof prisma) => {
       const existingUser = await tx.user.findUnique({ where: { email } });
       if (existingUser) throw new AppError(409, "Customer email already exists");
 
@@ -193,7 +193,7 @@ export class CustomersService {
     if (voucher.status === "EXPIRED" || (voucher.expiresAt && voucher.expiresAt < new Date())) {
       throw new AppError(409, "Voucher has expired");
     }
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: typeof prisma) => {
       const updated = await tx.voucher.update({
         where: { id: voucher.id, status: "UNUSED" },
         data: { status: "USED", usedByCustomerId: customerId },
