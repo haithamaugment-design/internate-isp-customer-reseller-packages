@@ -35,10 +35,7 @@ function getClient(): BedrockRuntimeClient {
   const region = getBedrockRegion();
   // Recreate client if region changed (e.g. env vars loaded late)
   if (!client || cachedRegion !== region) {
-    client = new BedrockRuntimeClient({
-      region,
-      requestHandler: { requestTimeout: 120_000, connectTimeout: 10_000 },
-    } as any);
+    client = new BedrockRuntimeClient({ region });
     cachedRegion = region;
   }
   return client;

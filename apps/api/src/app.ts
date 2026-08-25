@@ -22,15 +22,9 @@ import cronRoutes from "./modules/cron/cron.routes";
 import subscriptionRoutes from "./modules/subscriptions/subscriptions.routes";
 import blogRoutes from "./modules/blog/blog.routes";
 import productRoutes from "./modules/products/products.routes";
-// AI routes are lazy-loaded so they don't crash the API if AWS SDK is unavailable
-let businessAiRoutes: any = null;
-let aiAdvancedRoutes: any = null;
-try {
-  businessAiRoutes = require("./modules/business-ai/business-ai.routes").default;
-  aiAdvancedRoutes = require("./modules/business-ai/ai-advanced.routes").default;
-} catch (e) {
-  console.error("AI routes failed to load (non-fatal):", (e as Error).message);
-}
+// AI routes loaded eagerly — if they crash, the whole API dies
+import businessAiRoutes from "./modules/business-ai/business-ai.routes";
+import aiAdvancedRoutes from "./modules/business-ai/ai-advanced.routes";
 import setupRoutes from "./modules/setup/setup.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { authRateLimit, apiRateLimit } from "./middleware/rateLimit";
@@ -61,8 +55,8 @@ app.use("/api/v1/cron", cronRoutes);
 app.use("/api/v1/subscriptions", apiRateLimit, subscriptionRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/products", productRoutes);
-if (businessAiRoutes) app.use("/api/v1/business-ai", businessAiRoutes);
-if (aiAdvancedRoutes) app.use("/api/v1/business-ai/advanced", aiAdvancedRoutes);
+app.use("/api/v1/business-ai", businessAiRoutes);
+app.use("/api/v1/business-ai/advanced", aiAdvancedRoutes);
 app.use("/api/v1/setup", setupRoutes);
 
 app.use(notFoundHandler);
