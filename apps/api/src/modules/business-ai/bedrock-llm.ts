@@ -35,7 +35,10 @@ function getClient(): BedrockRuntimeClient {
   const region = getBedrockRegion();
   // Recreate client if region changed (e.g. env vars loaded late)
   if (!client || cachedRegion !== region) {
-    client = new BedrockRuntimeClient({ region });
+    client = new BedrockRuntimeClient({
+      region,
+      requestHandler: { requestTimeout: 120_000, connectTimeout: 10_000 },
+    } as any);
     cachedRegion = region;
   }
   return client;
@@ -240,6 +243,8 @@ export interface BedrockChatOptions {
   temperature?: number;
   /** If true, keep JSON code blocks in the returned text (for blog generation etc.) */
   keepJson?: boolean;
+  /** Custom system prompt — overrides the default business planner prompt */
+  systemPrompt?: string;
 }
 
 /**
@@ -254,7 +259,7 @@ export async function bedrockChat(
 
   // Build messages array for chat models (DeepSeek, Claude, etc.)
   const chatMessages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: options?.systemPrompt || SYSTEM_PROMPT },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 

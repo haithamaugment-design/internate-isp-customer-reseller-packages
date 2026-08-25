@@ -324,18 +324,15 @@ export class BlogAIService {
       advanced: "experienced user, include advanced configurations",
     };
 
-    const prompt = `You are a senior technical writer for NetMaster, an ISP reseller management platform in Tanzania. Write a comprehensive, educational blog post.
+    const systemPrompt = `You are a senior technical writer for NetMaster, an ISP reseller management platform in Tanzania. You write comprehensive, educational blog posts about routers, networking, OpenWRT, MikroTik, and WiFi reseller business topics.
 
-# TOPIC
-${input.topic}
-
-# REQUIREMENTS
-- Difficulty level: ${difficultyMap[input.difficulty || "intermediate"]}
-- Article length: ${lengthMap[input.length || "medium"]}
-${input.routerModel ? `- Focus router: ${input.routerModel}` : ""}
-- Audience: WiFi resellers and internet entrepreneurs in Tanzania
-- Include real commands, real URLs, real pricing in TZS where applicable
-- Write in English with Swahili translations for key business terms
+# YOUR RULES
+- You are a BLOG WRITER, not a business planner. Never refuse to write a blog post.
+- Always write the complete article as requested. Never redirect to business planning.
+- Write in English with Swahili translations for key business terms where helpful.
+- Include real commands, real URLs, real pricing in TZS where applicable.
+- Be beginner-friendly but include advanced sections.
+- Keep paragraphs short (3-4 sentences max).
 
 # ROUTER KNOWLEDGE BASE
 ${ROUTER_KNOWLEDGE}
@@ -343,8 +340,18 @@ ${ROUTER_KNOWLEDGE}
 # FORMAT INSTRUCTIONS
 ${FORMAT_INSTRUCTIONS}
 
-# OUTPUT
-Return ONLY a JSON object with these fields:
+## CATEGORY SUGGESTIONS RULES:
+- Suggest 1-3 categories that best describe this article
+- The FIRST category in the array (isPrimary: true) is the main category
+- You may create NEW categories if the existing ones don't fit well
+- For router-specific articles, create a category like "TP-Link Guides", "GL.iNet Guides", etc.
+- For feature-specific articles, create categories like "CoovaChilli", "Hotspot Setup", "RADIUS Auth"
+- For business articles, create categories like "Pricing Strategies", "Customer Management"
+- Use existing categories (Router Guides, MikroTik, OpenWRT, Platform Setup, Reseller Tips, Network Security, Getting Started, Hardware Reviews) when they fit
+- Only create new categories when the article clearly doesn't fit any existing one
+- Parent categories: use "openwrt" as parentId for CoovaChilli/OpenWRT subtopics, "mikrotik" for RouterOS subtopics
+
+You MUST return ONLY a JSON object with these fields:
 {
   "title": "SEO-friendly title (50-70 chars)",
   "slug": "url-friendly-slug",
@@ -363,25 +370,24 @@ Return ONLY a JSON object with these fields:
   ]
 }
 
-## CATEGORY SUGGESTIONS RULES:
-- Suggest 1-3 categories that best describe this article
-- The FIRST category in the array (isPrimary: true) is the main category
-- You may create NEW categories if the existing ones don't fit well
-- For router-specific articles, create a category like "TP-Link Guides", "GL.iNet Guides", etc.
-- For feature-specific articles, create categories like "CoovaChilli", "Hotspot Setup", "RADIUS Auth"
-- For business articles, create categories like "Pricing Strategies", "Customer Management"
-- Use existing categories (Router Guides, MikroTik, OpenWRT, Platform Setup, Reseller Tips, Network Security, Getting Started, Hardware Reviews) when they fit
-- Only create new categories when the article clearly doesn't fit any existing one
-- Parent categories: use "openwrt" as parentId for CoovaChilli/OpenWRT subtopics, "mikrotik" for RouterOS subtopics
+The "content" field MUST contain the FULL article with all formatting. Do NOT truncate or abbreviate.`;
 
-IMPORTANT: The "content" field MUST contain the FULL article with all formatting.
-Do NOT truncate or abbreviate. Write the complete article.
-`;
+    const userPrompt = `Write a blog post about: ${input.topic}
 
-    const response = await bedrockChat([{ role: "user", content: prompt }], {
-      maxTokens: 4096,
+# Requirements
+- Difficulty level: ${difficultyMap[input.difficulty || "intermediate"]}
+- Article length: ${lengthMap[input.length || "medium"]}
+${input.routerModel ? `- Focus router: ${input.routerModel}` : ""}
+- Audience: WiFi resellers and internet entrepreneurs in Tanzania
+- Return ONLY the JSON object, no other text.`;
+
+    const tokenMap = { short: 4096, medium: 8192, long: 8192 };
+
+    const response = await bedrockChat([{ role: "user", content: userPrompt }], {
+      maxTokens: tokenMap[input.length || "medium"],
       temperature: 0.4,
       keepJson: true,
+      systemPrompt,
     });
     const text = response.rawText;
 
