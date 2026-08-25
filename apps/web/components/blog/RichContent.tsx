@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 
 interface RichContentProps {
   content: string;
+  /** If false, hide the inline TOC (parent renders it in a sidebar) */
+  showToc?: boolean;
 }
 
 /**
@@ -15,7 +17,7 @@ interface RichContentProps {
  * - Numbered step lists
  * - Resource links
  */
-export function RichContent({ content }: RichContentProps) {
+export function RichContent({ content, showToc }: RichContentProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   // Parse content into segments
@@ -32,8 +34,8 @@ export function RichContent({ content }: RichContentProps) {
 
   return (
     <div className="rich-content">
-      {/* Table of Contents */}
-      {toc.length > 0 && (
+      {/* Table of Contents — only show if showToc is not explicitly false */}
+      {showToc !== false && toc.length > 0 && (
         <nav className="mb-8 p-5 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
           <h2 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             <span className="text-base">📑</span> Table of Contents
@@ -214,7 +216,7 @@ function parseContent(content: string): Segment[] {
 // TOC EXTRACTOR
 // ═══════════════════════════════════════════════════════════════
 
-function extractTOC(content: string): { level: number; text: string }[] {
+export function extractTOC(content: string): { level: number; text: string }[] {
   const toc: { level: number; text: string }[] = [];
   const lines = content.split("\n");
 
@@ -469,7 +471,7 @@ function renderInlineMarkdown(text: string): React.ReactNode {
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════
 
-function slugify(text: string): string {
+export function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")

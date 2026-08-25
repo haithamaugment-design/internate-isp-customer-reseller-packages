@@ -1,10 +1,18 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma } from "../../prisma/client";
-import { BlogAIService } from "./blog-ai.service";
 import { authGuard } from "../../middleware/authGuard";
 
 const router = Router();
-const blogAI = new BlogAIService();
+
+// Lazy-load AI service so it doesn't crash basic blog routes if AWS SDK is unavailable
+let blogAI: any = null;
+function getBlogAI() {
+  if (!blogAI) {
+    const { BlogAIService } = require("./blog-ai.service");
+    blogAI = new BlogAIService();
+  }
+  return blogAI;
+}
 
 /** Map Prisma fields to frontend-friendly names */
 function toFrontendPost(p: any) {
