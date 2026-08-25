@@ -142,8 +142,12 @@ async function main() {
 
     // Extract text from various response formats
     let responseText = "";
-    if (responseBody.choices?.[0]?.text) {
+    if (responseBody.choices?.[0]?.message?.content) {
+      responseText = responseBody.choices[0].message.content;
+    } else if (responseBody.choices?.[0]?.text) {
       responseText = responseBody.choices[0].text;
+    } else if (responseBody.content?.[0]?.text) {
+      responseText = responseBody.content[0].text;
     } else if (responseBody.generation) {
       responseText = responseBody.generation;
     } else if (responseBody.output?.text) {

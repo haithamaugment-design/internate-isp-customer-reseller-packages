@@ -9,11 +9,18 @@ import {
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 
-// --- Configuration from environment ---
+// --- Configuration from environment (lazy-loaded) ---
+//
+// We read process.env at CALL TIME rather than module-init time so
+// that dotenv has loaded regardless of import order.
 
-const BEDROCK_REGION = process.env.AWS_BEDROCK_REGION || "us-east-1";
-const BEDROCK_MODEL_ID =
-  process.env.AWS_BEDROCK_MODEL_ID || "deepseek.v3.2";
+function getBedrockRegion(): string {
+  return process.env.AWS_BEDROCK_REGION || "us-east-1";
+}
+
+function getBedrockModelId(): string {
+  return process.env.AWS_BEDROCK_MODEL_ID || "deepseek.v3.2";
+}
 
 // The AWS SDK will pick up credentials from:
 //   1. AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY env vars
@@ -22,13 +29,14 @@ const BEDROCK_MODEL_ID =
 // No manual credential wiring needed if any of the above is configured.
 
 let client: BedrockRuntimeClient | null = null;
+let cachedRegion: string = "";
 
 function getClient(): BedrockRuntimeClient {
-  if (!client) {
-    client = new BedrockRuntimeClient({
-      region: BEDROCK_REGION,
-      // Credentials are resolved automatically by the SDK
-    });
+  const region = getBedrockRegion();
+  // Recreate client if region changed (e.g. env vars loaded late)
+  if (!client || cachedRegion !== region) {
+    client = new BedrockRuntimeClient({ region });
+    cachedRegion = region;
   }
   return client;
 }
@@ -113,7 +121,7 @@ export async function bedrockChat(
   });
 
   const command = new InvokeModelCommand({
-    modelId: BEDROCK_MODEL_ID,
+    modelId: getBedrockModelId(),
     contentType: "application/json",
     accept: "application/json",
     body: new TextEncoder().encode(inputBody),
@@ -124,12 +132,22 @@ export async function bedrockChat(
     new TextDecoder().decode(response.body)
   );
 
-  // DeepSeek and similar models return { choices: [{ text: "..." }] }
-  // or { generation: "..." } or { completions: [{ data: { text: "..." } }] }
+  // Extract text from various model response formats:
+  // DeepSeek/Chat: { choices: [{ message: { content: "..." } }] }
+  // Anthropic:     { content: [{ text: "..." }] }
+  // Legacy:        { generation: "..." } or { completions: [{ data: { text: "..." } }] }
+  // Bedrock output: { output: { text: "..." } } or { output: "..." }
   let text = "";
 
-  if (responseBody.choices?.[0]?.text) {
+  if (responseBody.choices?.[0]?.message?.content) {
+    // DeepSeek / OpenAI-style chat response
+    text = responseBody.choices[0].message.content;
+  } else if (responseBody.choices?.[0]?.text) {
+    // Older completion-style response
     text = responseBody.choices[0].text;
+  } else if (responseBody.content?.[0]?.text) {
+    // Anthropic Claude response
+    text = responseBody.content[0].text;
   } else if (responseBody.generation) {
     text = responseBody.generation;
   } else if (responseBody.completions?.[0]?.data?.text) {
@@ -162,6 +180,7 @@ export async function bedrockChat(
 
 /**
  * Check if Bedrock is configured (env vars present).
+ * Reads process.env at call time so it always reflects the current state.
  */
 export function isBedrockConfigured(): boolean {
   return !!(
@@ -176,8 +195,8 @@ export function isBedrockConfigured(): boolean {
  */
 export function getBedrockConfig() {
   return {
-    region: BEDROCK_REGION,
-    modelId: BEDROCK_MODEL_ID,
+    region: getBedrockRegion(),
+    modelId: getBedrockModelId(),
     configured: isBedrockConfigured(),
   };
 }

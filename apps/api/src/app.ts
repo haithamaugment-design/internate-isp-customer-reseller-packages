@@ -1,5 +1,10 @@
 import express from "express";
 import cors from "cors";
+
+// Config MUST be imported first so dotenv loads .env before any route
+// modules (especially bedrock-llm.ts) read process.env.
+import { config } from "./config";
+
 import authRoutes from "./modules/auth/auth.routes";
 import organizationRoutes from "./modules/organizations/organizations.routes";
 import userRoutes from "./modules/users/users.routes";
@@ -21,7 +26,6 @@ import businessAiRoutes from "./modules/business-ai/business-ai.routes";
 import setupRoutes from "./modules/setup/setup.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { authRateLimit, apiRateLimit } from "./middleware/rateLimit";
-import { config } from "./config";
 
 const app = express();
 
