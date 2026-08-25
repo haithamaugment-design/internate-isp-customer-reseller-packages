@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: netmaster
+    runtime: node
+    buildCommand: npm install && npm run vercel-build
+    startCommand: API_PORT=$API_PORT node apps/api/dist/index.js & cd apps/web && next start -p $PORT -H 0.0.0.0
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_PORT
+        value: 3001
+    healthCheckPath: /health
