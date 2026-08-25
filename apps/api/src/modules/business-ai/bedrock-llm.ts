@@ -99,22 +99,14 @@ export async function bedrockChat(
 ): Promise<BedrockResponse> {
   const bedrock = getClient();
 
-  // Build the prompt — Bedrock Converse-style via InvokeModel
-  // We'll use the messages array directly with the model's chat format.
-  const userMessage = messages[messages.length - 1]?.content || "";
-
-  // For DeepSeek and most Bedrock models, we build a simple prompt
-  const conversationHistory = messages
-    .slice(0, -1)
-    .map((m) => `${m.role === "user" ? "Human" : "Assistant"}: ${m.content}`)
-    .join("\n\n");
-
-  const fullPrompt = conversationHistory
-    ? `${SYSTEM_PROMPT}\n\n${conversationHistory}\n\nHuman: ${userMessage}\n\nAssistant:`
-    : `${SYSTEM_PROMPT}\n\nHuman: ${userMessage}\n\nAssistant:`;
+  // Build messages array for chat models (DeepSeek, Claude, etc.)
+  const chatMessages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
 
   const inputBody = JSON.stringify({
-    prompt: fullPrompt,
+    messages: chatMessages,
     max_tokens: 2048,
     temperature: 0.7,
     top_p: 0.9,
