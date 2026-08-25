@@ -107,7 +107,7 @@ export default function AIBusinessPartnerPage() {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: data.message,
-        metadata: data.metadata,
+        metadata: { ...data.metadata, autoApplied: data.autoApplied },
       };
       setMessages((prev) => [...prev, aiMsg]);
 
@@ -121,11 +121,6 @@ export default function AIBusinessPartnerPage() {
           costs: data.metadata.costs,
           locationPlans: data.metadata.locationPlans,
         }));
-      }
-
-      // Handle apply action
-      if (data.metadata?.action === "apply_plan" && activeConversation) {
-        await applyPlan(activeConversation);
       }
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -159,6 +154,16 @@ export default function AIBusinessPartnerPage() {
       }
     } catch (err) {
       console.error("Failed to delete conversation:", err);
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!activeConversation) return;
+    try {
+      await api.del(`/business-ai/conversations/${activeConversation}/messages/${messageId}`);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      console.error("Failed to delete message:", err);
     }
   };
 
@@ -264,17 +269,10 @@ export default function AIBusinessPartnerPage() {
             >
               ⚙️ Automation
             </button>
-            {currentPlan && currentPlan.status !== "ACTIVE" && currentPlan.monthlyProfitTarget > 0 && (
-              <button
-                onClick={() => applyPlan(currentPlan.id)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-                style={{
-                  background: "linear-gradient(135deg, #00C853, #00E676)",
-                  color: "white",
-                }}
-              >
-                ✅ Apply Plan
-              </button>
+            {currentPlan && currentPlan.status === "ACTIVE" && (
+              <span className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                ✅ Plan Active
+              </span>
             )}
           </div>
         </div>
@@ -304,9 +302,20 @@ export default function AIBusinessPartnerPage() {
             </div>
           ) : (
             messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={msg.id} className={`flex group ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className="relative max-w-[80%]">
+                  {/* Delete button */}
+                  <button
+                    onClick={() => deleteMessage(msg.id)}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600 z-10"
+                    title="Delete message"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                    </svg>
+                  </button>
                 <div
-                  className={`max-w-[80%] rounded-2xl px-5 py-3 ${
+                  className={`rounded-2xl px-5 py-3 ${
                     msg.role === "user"
                       ? "bg-[var(--accent-primary)] text-white"
                       : "bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-primary)]"
@@ -342,8 +351,9 @@ export default function AIBusinessPartnerPage() {
                   )}
                   {/* Plan visualization */}
                   {msg.metadata?.plan && (
-                    <PlanVisualization plan={msg.metadata.plan} />
+                    <PlanVisualization plan={msg.metadata.plan} autoApplied={msg.metadata.autoApplied} />
                   )}
+                </div>
                 </div>
               </div>
             ))
@@ -403,12 +413,20 @@ export default function AIBusinessPartnerPage() {
   );
 }
 
-function PlanVisualization({ plan }: { plan: any }) {
+function PlanVisualization({ plan, autoApplied }: { plan: any; autoApplied?: any }) {
   return (
     <div className="mt-4 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-3">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">📊</span>
-        <span className="text-sm font-bold text-[var(--text-primary)]">Business Plan Summary</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📊</span>
+          <span className="text-sm font-bold text-[var(--text-primary)]">Business Plan Summary</span>
+        </div>
+        {autoApplied && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30">
+            <span className="text-[10px]">✅</span>
+            <span className="text-[10px] font-semibold text-emerald-400">Auto-Applied</span>
+          </div>
+        )}
       </div>
 
       {/* Financial Overview */}
@@ -466,6 +484,30 @@ function PlanVisualization({ plan }: { plan: any }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Auto-applied summary */}
+      {autoApplied && (
+        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <div className="text-xs font-semibold text-emerald-400 mb-2">🎉 Plan Auto-Created</div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-lg font-bold text-emerald-400">{autoApplied.packagesCreated}</div>
+              <div className="text-[10px] text-[var(--text-muted)]">Packages</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-emerald-400">{autoApplied.vouchersCreated}</div>
+              <div className="text-[10px] text-[var(--text-muted)]">Vouchers</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-emerald-400">{autoApplied.locationsCount}</div>
+              <div className="text-[10px] text-[var(--text-muted)]">Locations</div>
+            </div>
+          </div>
+          <p className="text-[10px] text-emerald-400/70 mt-2 text-center">
+            Packages and vouchers created automatically. Start selling!
+          </p>
         </div>
       )}
     </div>

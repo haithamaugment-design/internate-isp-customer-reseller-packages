@@ -189,7 +189,8 @@ export class BusinessAIService {
           },
         });
 
-        // If Bedrock generated a structured plan, save it
+        // If Bedrock generated a structured plan, save it AND auto-apply
+        let autoAppliedResult: any = null;
         if (bedrockResponse.planData) {
           const pd = bedrockResponse.planData;
           await prisma.businessPlan.update({
@@ -203,6 +204,14 @@ export class BusinessAIService {
               locationPlans: (pd.locationPlans as any[]) || [],
             },
           });
+
+          // Auto-apply: create packages and vouchers immediately
+          try {
+            autoAppliedResult = await this.applyPlan(resellerId, plan.id);
+          } catch (applyErr) {
+            // If auto-apply fails (e.g. missing tables), log but don't block
+            console.error("Auto-apply failed:", applyErr);
+          }
         }
 
         return {
@@ -210,6 +219,11 @@ export class BusinessAIService {
           options: [],
           type: bedrockResponse.planData ? "plan" : "suggestion",
           metadata: bedrockResponse.planData || null,
+          autoApplied: autoAppliedResult ? {
+            packagesCreated: autoAppliedResult.createdPackages?.length || 0,
+            vouchersCreated: autoAppliedResult.createdVouchers?.length || 0,
+            locationsCount: ((bedrockResponse.planData as any)?.locationPlans as any[])?.length || 0,
+          } : null,
           engine: "bedrock",
         };
       }
@@ -253,7 +267,8 @@ export class BusinessAIService {
         },
       });
 
-      // If plan was generated, update the plan record
+      // If plan was generated, update the plan record AND auto-apply
+      let autoAppliedResult: any = null;
       if (response.type === "plan" && response.metadata) {
         const planData = response.metadata as any;
         await prisma.businessPlan.update({
@@ -267,6 +282,13 @@ export class BusinessAIService {
             locationPlans: planData.locationPlans || [],
           },
         });
+
+        // Auto-apply: create packages and vouchers immediately
+        try {
+          autoAppliedResult = await this.applyPlan(resellerId, plan.id);
+        } catch (applyErr) {
+          console.error("Auto-apply failed:", applyErr);
+        }
       }
 
       return {
@@ -274,6 +296,11 @@ export class BusinessAIService {
         options: response.options,
         type: response.type,
         metadata: response.metadata,
+        autoApplied: autoAppliedResult ? {
+          packagesCreated: autoAppliedResult.createdPackages?.length || 0,
+          vouchersCreated: autoAppliedResult.createdVouchers?.length || 0,
+          locationsCount: (response.metadata as any)?.locationPlans?.length || 0,
+        } : null,
         engine: "rule-based",
       };
     } catch (err) {
@@ -428,6 +455,36 @@ export class BusinessAIService {
     } catch (err) {
       if (isMissingTable(err)) {
         throw new AppError(503, "Business AI tables not yet available. Please run database migrations.");
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Delete a single message from a conversation
+   */
+  async deleteMessage(resellerId: string, planId: string, messageId: string) {
+    try {
+      // Verify plan belongs to reseller
+      const plan = await prisma.businessPlan.findFirst({
+        where: { id: planId, resellerId },
+      });
+      if (!plan) throw new AppError(404, "Conversation not found");
+
+      // Find and delete the message
+      const message = await prisma.businessPlanMessage.findFirst({
+        where: { id: messageId, planId },
+      });
+      if (!message) throw new AppError(404, "Message not found");
+
+      await prisma.businessPlanMessage.delete({
+        where: { id: messageId },
+      });
+
+      return { deleted: true, messageId };
+    } catch (err) {
+      if (isMissingTable(err)) {
+        throw new AppError(503, "Business AI tables not yet available.");
       }
       throw err;
     }

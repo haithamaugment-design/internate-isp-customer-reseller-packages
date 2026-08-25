@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { RichContent } from "@/components/blog/RichContent";
 
 interface BlogPost {
   id: string;
@@ -164,8 +165,8 @@ export default function BlogPostContent({ slug }: { slug: string }) {
           <p className="text-lg text-[var(--text-muted)] mb-6 font-medium italic border-l-4 border-[var(--accent)] pl-4">{post.excerpt}</p>
         )}
 
-        <article className="prose prose-lg max-w-none mb-12">
-          <div className="text-[var(--text)] leading-relaxed whitespace-pre-wrap">{post.content}</div>
+        <article className="max-w-none mb-12">
+          <RichContent content={post.content} />
         </article>
 
         {post.tags && (Array.isArray(post.tags) ? post.tags : post.tags.split(",")).length > 0 && (

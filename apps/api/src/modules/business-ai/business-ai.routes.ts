@@ -12,6 +12,7 @@ router.post("/conversations", (req, res, next) => controller.startConversation(r
 router.get("/conversations", (req, res, next) => controller.listConversations(req, res, next));
 router.get("/conversations/:planId", (req, res, next) => controller.getConversation(req, res, next));
 router.delete("/conversations/:planId", (req, res, next) => controller.deleteConversation(req, res, next));
+router.delete("/conversations/:planId/messages/:messageId", (req, res, next) => controller.deleteMessage(req, res, next));
 router.post("/chat", (req, res, next) => controller.sendMessage(req, res, next));
 router.post("/plans/:planId/apply", (req, res, next) => controller.applyPlan(req, res, next));
 router.get("/insights", (req, res, next) => controller.getInsights(req, res, next));

@@ -1,7 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma } from "../../prisma/client";
+import { BlogAIService } from "./blog-ai.service";
+import { authGuard } from "../../middleware/authGuard";
 
 const router = Router();
+const blogAI = new BlogAIService();
 
 /** Map Prisma fields to frontend-friendly names */
 function toFrontendPost(p: any) {
@@ -172,6 +175,54 @@ router.delete("/posts/:id", async (req: Request, res: Response, next: NextFuncti
   try {
     await prisma.blogPost.delete({ where: { id: req.params.id } });
     res.json({ data: { ok: true } });
+  } catch (err) { next(err); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// AI Blog Generation (admin only)
+// ═══════════════════════════════════════════════════════════
+
+router.post("/generate", authGuard, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { topic, category, routerModel, difficulty, length, published } = req.body;
+    if (!topic || !topic.trim()) {
+      res.status(400).json({ error: "Topic is required" });
+      return;
+    }
+    const result = await blogAI.generateAndSave({
+      topic: topic.trim(),
+      category,
+      routerModel,
+      difficulty: difficulty || "intermediate",
+      length: length || "medium",
+      published: published ?? false,
+    });
+    res.json({ data: result });
+  } catch (err: any) {
+    console.error("POST /blog/generate error:", err?.message?.substring(0, 300));
+    next(err);
+  }
+});
+
+router.post("/generate-series", authGuard, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { routerModel } = req.body;
+    if (!routerModel || !routerModel.trim()) {
+      res.status(400).json({ error: "Router model is required" });
+      return;
+    }
+    const results = await blogAI.generateRouterSeries(routerModel.trim());
+    res.json({ data: results });
+  } catch (err: any) {
+    console.error("POST /blog/generate-series error:", err?.message?.substring(0, 300));
+    next(err);
+  }
+});
+
+router.get("/categories/ensure", authGuard, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await blogAI.ensureCategories();
+    res.json({ data: categories });
   } catch (err) { next(err); }
 });
 

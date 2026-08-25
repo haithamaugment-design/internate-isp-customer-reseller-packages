@@ -36,7 +36,7 @@ interface Product {
   price: number;
 }
 
-type Tab = "posts" | "categories";
+type Tab = "posts" | "categories" | "ai-generate";
 
 export default function AdminBlogPage() {
   const [user] = useState(() => getStoredUser());
@@ -51,6 +51,16 @@ export default function AdminBlogPage() {
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [editingCat, setEditingCat] = useState<BlogCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAIGenerate, setShowAIGenerate] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiForm, setAiForm] = useState({
+    topic: "",
+    routerModel: "",
+    difficulty: "intermediate" as "beginner" | "intermediate" | "advanced",
+    length: "medium" as "short" | "medium" | "long",
+    category: "",
+    published: false,
+  });
 
   // Post form state
   const [form, setForm] = useState({
@@ -200,6 +210,52 @@ export default function AdminBlogPage() {
     setShowCatForm(true);
   }
 
+  async function handleAIGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    setAiGenerating(true);
+    try {
+      const result = await api.post<any>('/blog/generate', {
+        topic: aiForm.topic,
+        routerModel: aiForm.routerModel || undefined,
+        difficulty: aiForm.difficulty,
+        length: aiForm.length,
+        category: aiForm.category || undefined,
+        published: aiForm.published,
+      });
+      setShowAIGenerate(false);
+      setAiForm({ topic: "", routerModel: "", difficulty: "intermediate", length: "medium", category: "", published: false });
+      alert(`Post generated: "${result.post?.title || result.article?.title}"`);
+      loadData();
+    } catch (err: any) {
+      alert(`AI generation failed: ${err?.message || "Unknown error"}`);
+    }
+    setAiGenerating(false);
+  }
+
+  async function handleInitCategories() {
+    try {
+      await api.get('/blog/categories/ensure');
+      alert("All default categories created!");
+      loadData();
+    } catch (err: any) {
+      alert(`Failed: ${err?.message}`);
+    }
+  }
+
+  async function handleGenerateSeries() {
+    const model = prompt("Enter router model name (e.g., TP-Link Archer C7):");
+    if (!model) return;
+    setAiGenerating(true);
+    try {
+      const results = await api.post<any[]>('/blog/generate-series', { routerModel: model });
+      alert(`Generated ${results.length} posts for "${model}"`);
+      loadData();
+    } catch (err: any) {
+      alert(`Series generation failed: ${err?.message}`);
+    }
+    setAiGenerating(false);
+  }
+
   const filteredPosts = posts.filter(p =>
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.slug.toLowerCase().includes(searchQuery.toLowerCase())
@@ -218,15 +274,15 @@ export default function AdminBlogPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-[var(--surface)] rounded-xl p-1 border border-[var(--border)]">
-        {(["posts", "categories"] as Tab[]).map(t => (
+        {(["posts", "categories", "ai-generate"] as Tab[]).map(t => (
           <button
             key={t}
-            onClick={() => { setTab(t); setShowForm(false); setShowCatForm(false); }}
+            onClick={() => { setTab(t); setShowForm(false); setShowCatForm(false); setShowAIGenerate(false); }}
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === t ? "bg-[var(--accent)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text)]"
             }`}
           >
-            {t === "posts" ? `Posts (${posts.length})` : `Categories (${categories.length})`}
+            {t === "posts" ? `📝 Posts (${posts.length})` : t === "categories" ? `📂 Categories (${categories.length})` : "🤖 AI Generate"}
           </button>
         ))}
       </div>
@@ -371,7 +427,13 @@ export default function AdminBlogPage() {
       {/* CATEGORIES TAB */}
       {tab === "categories" && (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex items-center gap-3 justify-end">
+            <button
+              onClick={handleInitCategories}
+              className="px-4 py-2 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-medium hover:bg-emerald-500/25 transition-all"
+            >
+              ⚡ Init Default Categories
+            </button>
             <button
               onClick={() => { resetCatForm(); setEditingCat(null); setShowCatForm(true); }}
               className="px-4 py-2 bg-[var(--accent)] text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all"
@@ -457,6 +519,138 @@ export default function AdminBlogPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* AI GENERATE TAB */}
+      {tab === "ai-generate" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--text)]">AI Blog Generator</h2>
+              <p className="text-sm text-[var(--text-muted)] mt-1">
+                Generate blog posts about routers, OpenWRT, MikroTik, and reseller tips. The AI will automatically assign categories and suggest new ones.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleInitCategories}
+                className="px-4 py-2 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-medium hover:bg-emerald-500/25 transition-all"
+              >
+                ⚡ Init Categories
+              </button>
+              <button
+                onClick={handleGenerateSeries}
+                disabled={aiGenerating}
+                className="px-4 py-2 bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded-xl text-sm font-medium hover:bg-purple-500/25 transition-all disabled:opacity-50"
+              >
+                📚 Generate Series
+              </button>
+            </div>
+          </div>
+
+          {/* AI Generate Form */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6">
+            <h3 className="font-semibold text-[var(--text)] mb-4">🤖 Generate a Blog Post</h3>
+            <form onSubmit={handleAIGenerate} className="space-y-4">
+              <div>
+                <label className="block text-sm text-[var(--text-muted)] mb-1">Topic *</label>
+                <input
+                  type="text"
+                  required
+                  value={aiForm.topic}
+                  onChange={e => setAiForm({ ...aiForm, topic: e.target.value })}
+                  placeholder="e.g., How to Flash OpenWRT on TP-Link Archer C7"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[var(--text-muted)] mb-1">Router Model (optional)</label>
+                  <input
+                    type="text"
+                    value={aiForm.routerModel}
+                    onChange={e => setAiForm({ ...aiForm, routerModel: e.target.value })}
+                    placeholder="e.g., TP-Link Archer C7, MikroTik hAP ac2"
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--text-muted)] mb-1">Category (optional — AI will suggest)</label>
+                  <select
+                    value={aiForm.category}
+                    onChange={e => setAiForm({ ...aiForm, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]"
+                  >
+                    <option value="">Auto-detect from topic</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.slug}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[var(--text-muted)] mb-1">Difficulty</label>
+                  <select
+                    value={aiForm.difficulty}
+                    onChange={e => setAiForm({ ...aiForm, difficulty: e.target.value as "beginner" | "intermediate" | "advanced" })}
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]"
+                  >
+                    <option value="beginner">🟢 Beginner — no experience needed</option>
+                    <option value="intermediate">🟡 Intermediate — some networking knowledge</option>
+                    <option value="advanced">🔴 Advanced — professional level</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--text-muted)] mb-1">Length</label>
+                  <select
+                    value={aiForm.length}
+                    onChange={e => setAiForm({ ...aiForm, length: e.target.value as "short" | "medium" | "long" })}
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-[var(--text)]"
+                  >
+                    <option value="short">Short — quick overview</option>
+                    <option value="medium">Medium — detailed guide</option>
+                    <option value="long">Long — comprehensive tutorial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="ai-published"
+                  checked={aiForm.published}
+                  onChange={e => setAiForm({ ...aiForm, published: e.target.checked })}
+                  className="w-4 h-4 rounded border-[var(--border)] accent-[var(--accent)]"
+                />
+                <label htmlFor="ai-published" className="text-sm text-[var(--text-muted)]">Publish immediately after generation</label>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={aiGenerating}
+                  className="px-6 py-2 bg-[var(--accent)] text-white rounded-xl text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50"
+                >
+                  {aiGenerating ? "⏳ Generating..." : "🤖 Generate Post"}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4">
+            <h4 className="font-medium text-purple-400 text-sm mb-2">💡 Tips for great AI-generated content:</h4>
+            <ul className="text-xs text-[var(--text-muted)] space-y-1">
+              <li>• Be specific in the topic — &quot;Flash OpenWRT on TP-Link Archer C7 v5&quot; is better than &quot;router setup&quot;</li>
+              <li>• The AI will suggest new categories automatically (e.g., &quot;TP-Link Guides&quot;, &quot;CoovaChilli&quot;)</li>
+              <li>• Generated content includes firmware download links, CLI commands, and TZS pricing</li>
+              <li>• Use &quot;Generate Series&quot; to create a full guide set for any router model</li>
+            </ul>
+          </div>
         </div>
       )}
     </div>

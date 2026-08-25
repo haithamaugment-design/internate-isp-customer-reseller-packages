@@ -1,9 +1,12 @@
 import dotenv from "dotenv";
 import path from "path";
 
-// Load from project root first, then allow local overrides
+// Load from project root first, then allow local overrides.
+// Also load .env.local for secrets that shouldn't be committed.
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env.local") });
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env.local") });
 
 export const config = {
   port: Number(process.env.API_PORT ?? 3001),

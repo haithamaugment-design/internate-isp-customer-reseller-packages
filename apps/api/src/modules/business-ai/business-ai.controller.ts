@@ -67,6 +67,17 @@ export class BusinessAIController {
     }
   }
 
+  async deleteMessage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const auth = (req as any).auth;
+      const { planId, messageId } = req.params;
+      const result = await service.deleteMessage(auth?.organizationId || auth?.id, planId, messageId);
+      res.json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getInsights(req: Request, res: Response, next: NextFunction) {
     try {
       const auth = (req as any).auth;
