@@ -1,10 +1,18 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma } from "../../prisma/client";
-import { BlogAIService } from "./blog-ai.service";
 import { authGuard } from "../../middleware/authGuard";
 
 const router = Router();
-const blogAI = new BlogAIService();
+
+// Lazy-load BlogAIService so bedrock-llm imports don't crash the server
+let blogAI: any = null;
+function getBlogAI() {
+  if (!blogAI) {
+    const { BlogAIService } = require("./blog-ai.service");
+    blogAI = new BlogAIService();
+  }
+  return blogAI;
+}
 
 /** Map Prisma fields to frontend-friendly names */
 function toFrontendPost(p: any) {
@@ -189,7 +197,7 @@ router.post("/generate", authGuard, async (req: Request, res: Response, next: Ne
       res.status(400).json({ error: "Topic is required" });
       return;
     }
-    const result = await blogAI.generateAndSave({
+    const result = await getBlogAI().generateAndSave({
       topic: topic.trim(),
       category,
       routerModel,
@@ -211,7 +219,7 @@ router.post("/generate-series", authGuard, async (req: Request, res: Response, n
       res.status(400).json({ error: "Router model is required" });
       return;
     }
-    const results = await blogAI.generateRouterSeries(routerModel.trim());
+    const results = await getBlogAI().generateRouterSeries(routerModel.trim());
     res.json({ data: results });
   } catch (err: any) {
     console.error("POST /blog/generate-series error:", err?.message?.substring(0, 300));
@@ -221,7 +229,7 @@ router.post("/generate-series", authGuard, async (req: Request, res: Response, n
 
 router.get("/categories/ensure", authGuard, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const categories = await blogAI.ensureCategories();
+    const categories = await getBlogAI().ensureCategories();
     res.json({ data: categories });
   } catch (err) { next(err); }
 });

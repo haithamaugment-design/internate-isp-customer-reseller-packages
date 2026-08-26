@@ -20,11 +20,7 @@ import ticketRoutes from "./modules/tickets/tickets.routes";
 import notificationRoutes from "./modules/notifications/notifications.routes";
 import cronRoutes from "./modules/cron/cron.routes";
 import subscriptionRoutes from "./modules/subscriptions/subscriptions.routes";
-import blogRoutes from "./modules/blog/blog.routes";
 import productRoutes from "./modules/products/products.routes";
-// AI routes loaded eagerly — if they crash, the whole API dies
-import businessAiRoutes from "./modules/business-ai/business-ai.routes";
-import aiAdvancedRoutes from "./modules/business-ai/ai-advanced.routes";
 import setupRoutes from "./modules/setup/setup.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { authRateLimit, apiRateLimit } from "./middleware/rateLimit";
@@ -53,11 +49,34 @@ app.use("/api/v1/tickets", apiRateLimit, ticketRoutes);
 app.use("/api/v1/notifications", apiRateLimit, notificationRoutes);
 app.use("/api/v1/cron", cronRoutes);
 app.use("/api/v1/subscriptions", apiRateLimit, subscriptionRoutes);
-app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/products", productRoutes);
-app.use("/api/v1/business-ai", businessAiRoutes);
-app.use("/api/v1/business-ai/advanced", aiAdvancedRoutes);
 app.use("/api/v1/setup", setupRoutes);
+
+// Blog routes — lazy-loaded so bedrock-llm imports don't crash the server
+try {
+  const blogRoutes = require("./modules/blog/blog.routes").default;
+  app.use("/api/v1/blog", blogRoutes);
+  console.log("[routes] blog routes loaded");
+} catch (err: any) {
+  console.error("[routes] Failed to load blog routes (non-fatal):", err.message);
+}
+
+// AI routes — lazy-loaded so bedrock/AWS SDK imports don't crash the server
+try {
+  const businessAiRoutes = require("./modules/business-ai/business-ai.routes").default;
+  app.use("/api/v1/business-ai", businessAiRoutes);
+  console.log("[routes] business-ai routes loaded");
+} catch (err: any) {
+  console.error("[routes] Failed to load business-ai routes (non-fatal):", err.message);
+}
+
+try {
+  const aiAdvancedRoutes = require("./modules/business-ai/ai-advanced.routes").default;
+  app.use("/api/v1/business-ai/advanced", aiAdvancedRoutes);
+  console.log("[routes] ai-advanced routes loaded");
+} catch (err: any) {
+  console.error("[routes] Failed to load ai-advanced routes (non-fatal):", err.message);
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);
