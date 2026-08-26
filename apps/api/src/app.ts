@@ -82,6 +82,15 @@ try {
   console.error("[routes] Failed to load ai-advanced routes (non-fatal):", err.message);
 }
 
+// Fiber detection routes — no premium guard, available to all admins
+try {
+  const fiberRoutes = require("./modules/business-ai/fiber-detection.routes").default;
+  app.use("/api/v1/fiber", apiRateLimit, fiberRoutes);
+  console.log("[routes] fiber-detection routes loaded");
+} catch (err: any) {
+  console.error("[routes] Failed to load fiber-detection routes (non-fatal):", err.message);
+}
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 

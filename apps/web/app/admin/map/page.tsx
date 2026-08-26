@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useApi } from "@/lib/useApi";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -77,177 +77,137 @@ interface PotentialCustomer {
   notes?: string;
 }
 
-// Dynamic import for Leaflet (SSR-safe)
-function MapContainer({ center, markers, fiberAreas, selectedMarker, onMarkerClick }: {
+// Map component — client-only, SSR-safe
+function LeafletMap({ center, markers, fiberAreas, onMarkerClick }: {
   center: { lat: number; lng: number };
   markers: MapMarker[];
   fiberAreas: FiberArea[];
-  selectedMarker: MapMarker | null;
   onMarkerClick: (marker: MapMarker) => void;
 }) {
-  const [L, setL] = useState<any>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapInstance, setMapInstance] = useState<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
-    import("leaflet").then((leaflet) => {
-      setL(leaflet.default || leaflet);
+    if (!containerRef.current || mapRef.current) return;
+
+    // Dynamic import Leaflet on client only
+    import("leaflet").then((leafletMod) => {
+      const L = leafletMod.default || leafletMod;
+      if (!containerRef.current) return;
+
+      const map = L.map(containerRef.current, {
+        center: [center.lat, center.lng],
+        zoom: 12,
+        zoomControl: true,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      mapRef.current = { map, L };
+
+      // Initial render of markers
+      renderMarkers(L, map, markers, fiberAreas, onMarkerClick);
+    }).catch(() => {
+      // Leaflet import failed — show fallback
     });
-  }, []);
-
-  useEffect(() => {
-    if (!L || mapReady) return;
-
-    const map = L.map("admin-map", {
-      center: [center.lat, center.lng],
-      zoom: 12,
-      zoomControl: true,
-    });
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
-
-    setMapInstance(map);
-    setMapReady(true);
 
     return () => {
-      map.remove();
-      setMapReady(false);
-      setMapInstance(null);
+      if (mapRef.current?.map) {
+        mapRef.current.map.remove();
+        mapRef.current = null;
+      }
     };
-  }, [L, center]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Update markers when data changes
+  // Re-render markers when data changes
   useEffect(() => {
-    if (!L || !mapInstance) return;
+    if (!mapRef.current) return;
+    const { L, map } = mapRef.current;
 
-    // Clear existing markers (keep tile layer)
-    mapInstance.eachLayer((layer: any) => {
-      if (layer instanceof L.Marker || layer instanceof L.Circle) {
-        mapInstance.removeLayer(layer);
-      }
+    // Clear old markers
+    markersRef.current.forEach((m) => map.removeLayer(m));
+    markersRef.current = [];
+
+    renderMarkers(L, map, markers, fiberAreas, onMarkerClick);
+  }, [markers, fiberAreas, onMarkerClick]);
+
+  return <div ref={containerRef} style={{ width: "100%", height: "100%", minHeight: "600px" }} />;
+}
+
+function renderMarkers(L: any, map: any, markers: MapMarker[], fiberAreas: FiberArea[], onMarkerClick: (m: MapMarker) => void) {
+  // Add fiber coverage circles
+  fiberAreas.forEach((area) => {
+    const circle = L.circle([area.lat, area.lng], {
+      color: "#3b82f6",
+      fillColor: "#3b82f6",
+      fillOpacity: 0.08,
+      radius: area.radius * 1000,
+      weight: 1,
+    }).addTo(map).bindPopup(
+      `<div style="min-width:150px"><strong>${area.name}</strong><br/><small>Providers: ${area.providers.join(", ")}</small></div>`
+    );
+  });
+
+  // Add markers
+  const colors: Record<string, string> = {
+    location: "#8b5cf6",
+    router: "#f59e0b",
+    customer: "#10b981",
+    "fiber-equipment": "#06b6d4",
+    "potential-customer": "#f43f5e",
+  };
+
+  markers.forEach((marker) => {
+    const color = colors[marker.type] || "#6b7280";
+    const size = ["fiber-equipment", "potential-customer"].includes(marker.type) ? 14 : 12;
+
+    const icon = L.divIcon({
+      html: `<div style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,
+      className: "",
+      iconSize: [size + 4, size + 4],
+      iconAnchor: [(size + 4) / 2, (size + 4) / 2],
     });
 
-    // Add fiber coverage areas as circles
-    fiberAreas.forEach((area) => {
-      L.circle([area.lat, area.lng], {
-        color: "#3b82f6",
-        fillColor: "#3b82f6",
-        fillOpacity: 0.08,
-        radius: area.radius * 1000,
-        weight: 1,
-      }).addTo(mapInstance).bindPopup(
-        `<div style="min-width:150px">
-          <strong>${area.name}</strong><br/>
-          <small>Providers: ${area.providers.join(", ")}</small>
-        </div>`
-      );
-    });
+    const m = L.marker([marker.lat, marker.lng], { icon }).addTo(map);
 
-    // Add markers with custom icons
-    const createIcon = (type: string) => {
-      const colors: Record<string, string> = {
-        location: "#8b5cf6",
-        router: "#f59e0b",
-        customer: "#10b981",
-        "fiber-equipment": "#06b6d4",
-        "potential-customer": "#f43f5e",
-      };
-      const color = colors[type] || "#6b7280";
-      const size = type === "fiber-equipment" || type === "potential-customer" ? 14 : 12;
-      return L.divIcon({
-        html: `<div style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,
-        className: "custom-marker",
-        iconSize: [size + 4, size + 4],
-        iconAnchor: [(size + 4) / 2, (size + 4) / 2],
-      });
-    };
+    let popup = "";
+    if (marker.type === "customer") {
+      popup = `<div style="min-width:170px;font-family:system-ui"><b>👤 ${marker.name}</b><br/>📱 ${marker.details.phone || "—"}<br/>📶 ${marker.details.router || "—"}<br/>📋 ${marker.details.plan || "—"}</div>`;
+    } else if (marker.type === "router") {
+      popup = `<div style="min-width:160px;font-family:system-ui"><b>🔗 ${marker.name}</b><br/>MAC: ${marker.details.macAddress || "—"}<br/>👥 ${marker.details.customerCount || 0} customers</div>`;
+    } else if (marker.type === "location") {
+      popup = `<div style="min-width:160px;font-family:system-ui"><b>📍 ${marker.name}</b><br/>📡 ${marker.details.routerCount || 0} routers<br/>👥 ${marker.details.customerCount || 0} customers</div>`;
+    } else if (marker.type === "fiber-equipment") {
+      popup = `<div style="min-width:170px;font-family:system-ui"><b>🔌 ${marker.name}</b><br/>🏭 ${marker.details.manufacturer || "—"}<br/>📡 ${marker.details.isp || "—"}<br/><small style="color:#0e7490">Fiber confirmed</small></div>`;
+    } else if (marker.type === "potential-customer") {
+      popup = `<div style="min-width:170px;font-family:system-ui"><b>🎯 ${marker.name}</b><br/>📡 ${marker.details.isp || "—"}<br/>📶 ${marker.details.signalStrength || "?"} dBm<br/><small style="color:#9f1239">Potential customer</small></div>`;
+    }
 
-    markers.forEach((marker) => {
-      const icon = createIcon(marker.type);
-      const m = L.marker([marker.lat, marker.lng], { icon }).addTo(mapInstance);
-
-      let popupContent = "";
-      if (marker.type === "customer") {
-        popupContent = `
-          <div style="min-width:180px;font-family:system-ui">
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px">👤 ${marker.name}</div>
-            <div style="font-size:12px;color:#666">📱 ${marker.details.phone || "No phone"}</div>
-            <div style="font-size:12px;color:#666">📶 ${marker.details.router || "No router"}</div>
-            <div style="font-size:12px;color:#666">📋 ${marker.details.plan || "No plan"}</div>
-            <div style="font-size:11px;margin-top:4px;padding:2px 6px;border-radius:4px;display:inline-block;background:${marker.details.status === "ACTIVE" ? "#d1fae5" : "#fee2e2"};color:${marker.details.status === "ACTIVE" ? "#065f46" : "#991b1b"}">${marker.details.status || "Unknown"}</div>
-          </div>`;
-      } else if (marker.type === "router") {
-        popupContent = `
-          <div style="min-width:160px;font-family:system-ui">
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px">🔗 ${marker.name}</div>
-            <div style="font-size:12px;color:#666">MAC: ${marker.details.macAddress || "—"}</div>
-            <div style="font-size:12px;color:#666">👥 ${marker.details.customerCount || 0} customers</div>
-          </div>`;
-      } else if (marker.type === "location") {
-        popupContent = `
-          <div style="min-width:160px;font-family:system-ui">
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px">📍 ${marker.name}</div>
-            <div style="font-size:12px;color:#666">📡 ${marker.details.routerCount || 0} routers</div>
-            <div style="font-size:12px;color:#666">👥 ${marker.details.customerCount || 0} customers</div>
-          </div>`;
-      } else if (marker.type === "fiber-equipment") {
-        popupContent = `
-          <div style="min-width:180px;font-family:system-ui">
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px">🔌 ${marker.name}</div>
-            <div style="font-size:12px;color:#666">🏭 ${marker.details.manufacturer || "Unknown"}</div>
-            <div style="font-size:12px;color:#666">📡 ISP: ${marker.details.isp || "Detected"}</div>
-            <div style="font-size:12px;color:#666">📎 ${marker.details.deviceType || "device"}</div>
-            <div style="font-size:11px;margin-top:4px;padding:2px 6px;border-radius:4px;display:inline-block;background:#cffafe;color:#0e7490">Fiber confirmed via MAC OUI</div>
-          </div>`;
-      } else if (marker.type === "potential-customer") {
-        popupContent = `
-          <div style="min-width:180px;font-family:system-ui">
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px">🎯 ${marker.name}</div>
-            <div style="font-size:12px;color:#666">📡 ISP: ${marker.details.isp || "Unknown"}</div>
-            <div style="font-size:12px;color:#666">📶 Signal: ${marker.details.signalStrength || "?"} dBm</div>
-            <div style="font-size:12px;color:#666">📊 Confidence: ${Math.round((marker.details.confidence || 0) * 100)}%</div>
-            <div style="font-size:11px;margin-top:4px;padding:2px 6px;border-radius:4px;display:inline-block;background:#ffe4e6;color:#9f1239">Potential customer — visit & convert!</div>
-          </div>`;
-      }
-
-      m.bindPopup(popupContent);
-      m.on("click", () => onMarkerClick(marker));
-    });
-  }, [L, mapInstance, markers, fiberAreas, onMarkerClick]);
-
-  return (
-    <div id="admin-map" style={{ width: "100%", height: "100%", minHeight: "600px", borderRadius: "12px" }} />
-  );
+    m.bindPopup(popup);
+    m.on("click", () => onMarkerClick(marker));
+  });
 }
 
 export default function AdminMapPage() {
   const { data, loading, error, reload } = useApi<MapData>("/map", [], 30000);
-  const fiberSummary = useApi<FiberCoverageSummary>("/business-ai/advanced/fiber-coverage-summary", [], 60000);
-  const potentialCustomers = useApi<PotentialCustomer[]>("/business-ai/advanced/potential-customers", [], 60000);
+  const fiberSummary = useApi<FiberCoverageSummary>("/fiber/fiber-coverage-summary", [], 60000);
+  const potentialCustomers = useApi<PotentialCustomer[]>("/fiber/potential-customers", [], 60000);
 
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
-  const [filter, setFilter] = useState<"all" | "customer" | "router" | "location" | "fiber-equipment" | "potential-customer">("all");
+  const [filter, setFilter] = useState<"all" | "customer" | "router" | "location" | "potential-customer">("all");
   const [showFiber, setShowFiber] = useState(true);
   const [showPotential, setShowPotential] = useState(true);
-  const [scanning, setScanning] = useState(false);
 
   const mapData = data;
 
-  // Merge fiber detection and potential customers into markers
   const allMarkers = useMemo(() => {
     if (!mapData) return [];
-
     const markers = [...mapData.markers];
-
-    // Add fiber equipment markers from detection
-    if (fiberSummary.data && mapData) {
-      // Fiber equipment markers are already in the map data from the backend
-    }
-
-    // Add potential customer markers
     if (potentialCustomers.data) {
       for (const pc of potentialCustomers.data) {
         markers.push({
@@ -256,40 +216,26 @@ export default function AdminMapPage() {
           name: pc.name,
           lat: pc.lat,
           lng: pc.lng,
-          details: {
-            isp: pc.isp,
-            signalStrength: pc.signalStrength,
-            confidence: pc.confidence,
-            source: pc.source,
-          },
+          details: { isp: pc.isp, signalStrength: pc.signalStrength, confidence: pc.confidence, source: pc.source },
         });
       }
     }
-
     return markers;
-  }, [mapData, potentialCustomers.data, fiberSummary.data]);
+  }, [mapData, potentialCustomers.data]);
 
   const filteredMarkers = useMemo(() => {
     if (filter === "all") {
       return allMarkers.filter((m) => {
         if (!showPotential && m.type === "potential-customer") return false;
-        if (!showFiber && m.type === "fiber-equipment") return false;
         return true;
       });
     }
     return allMarkers.filter((m) => m.type === filter);
-  }, [allMarkers, filter, showFiber, showPotential]);
+  }, [allMarkers, filter, showPotential]);
 
-  const handleWifiScan = useCallback(async (routerId: string) => {
-    setScanning(true);
-    try {
-      await api.post(`/business-ai/advanced/wifi-scan/${routerId}`);
-      potentialCustomers.reload();
-      fiberSummary.reload();
-    } finally {
-      setScanning(false);
-    }
-  }, [potentialCustomers, fiberSummary]);
+  const handleMarkerClick = useCallback((marker: MapMarker) => {
+    setSelectedMarker(marker);
+  }, []);
 
   if (loading) return <LoadingState />;
   if (error || !mapData) {
@@ -297,19 +243,13 @@ export default function AdminMapPage() {
   }
 
   const potentialCount = potentialCustomers.data?.length || 0;
-  const fiberCount = allMarkers.filter((m) => m.type === "fiber-equipment").length;
 
   return (
     <div>
       <PageHeader
         title="Network Map & Fiber Discovery"
-        subtitle="Track customers, discover fiber users, and find potential customers in your area"
-        action={
-          <Button variant="secondary" onClick={reload}>
-            <Icon name="refresh" size={16} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-        }
+        subtitle="Track customers, discover fiber users, and find potential customers"
+        action={<Button variant="secondary" onClick={reload}><Icon name="refresh" size={16} /><span className="hidden sm:inline">Refresh</span></Button>}
       />
 
       {/* Stats */}
@@ -337,30 +277,15 @@ export default function AdminMapPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <button
-          onClick={() => setFilter("all")}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === "all" ? "bg-accent-blue text-white" : "bg-white/60 border border-white/60 text-text-secondary hover:bg-white/80"}`}
-        >
-          All ({allMarkers.length})
-        </button>
-        <button
-          onClick={() => setFilter("customer")}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === "customer" ? "bg-accent-green text-white" : "bg-white/60 border border-white/60 text-text-secondary hover:bg-white/80"}`}
-        >
-          Customers ({allMarkers.filter((m) => m.type === "customer").length})
-        </button>
-        <button
-          onClick={() => setFilter("router")}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === "router" ? "bg-amber-500 text-white" : "bg-white/60 border border-white/60 text-text-secondary hover:bg-white/80"}`}
-        >
-          Routers ({allMarkers.filter((m) => m.type === "router").length})
-        </button>
-        <button
-          onClick={() => setFilter("potential-customer")}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === "potential-customer" ? "bg-rose-500 text-white" : "bg-white/60 border border-white/60 text-text-secondary hover:bg-white/80"}`}
-        >
-          🎯 Potential ({potentialCount})
-        </button>
+        {(["all", "customer", "router", "location", "potential-customer"] as const).map((f) => {
+          const labels: Record<string, string> = { all: `All (${allMarkers.length})`, customer: `Customers (${allMarkers.filter((m) => m.type === "customer").length})`, router: `Routers (${allMarkers.filter((m) => m.type === "router").length})`, location: `Locations (${allMarkers.filter((m) => m.type === "location").length})`, "potential-customer": `🎯 Potential (${potentialCount})` };
+          const activeColors: Record<string, string> = { all: "bg-accent-blue text-white", customer: "bg-accent-green text-white", router: "bg-amber-500 text-white", location: "bg-accent-purple text-white", "potential-customer": "bg-rose-500 text-white" };
+          return (
+            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === f ? activeColors[f] : "bg-white/60 border border-white/60 text-text-secondary hover:bg-white/80"}`}>
+              {labels[f]}
+            </button>
+          );
+        })}
         <div className="ml-auto flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
             <input type="checkbox" checked={showFiber} onChange={(e) => setShowFiber(e.target.checked)} className="rounded" />
@@ -376,45 +301,26 @@ export default function AdminMapPage() {
       {/* Map */}
       <Card className="overflow-hidden">
         <div style={{ height: "600px" }}>
-          <MapContainer
+          <LeafletMap
             center={mapData.center}
             markers={filteredMarkers}
             fiberAreas={showFiber ? mapData.fiberAreas : []}
-            selectedMarker={selectedMarker}
-            onMarkerClick={setSelectedMarker}
+            onMarkerClick={handleMarkerClick}
           />
         </div>
       </Card>
 
       {/* Legend */}
       <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-text-secondary">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-accent-purple" />
-          Location
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-amber-500" />
-          Router
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-accent-green" />
-          Customer
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-cyan-500" />
-          Fiber equipment
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-rose-500" />
-          Potential customer
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full border-2 border-blue-500 bg-blue-500/20" />
-          ISP coverage
-        </div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-accent-purple" /> Location</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-amber-500" /> Router</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-accent-green" /> Customer</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-cyan-500" /> Fiber equipment</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-rose-500" /> Potential customer</div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full border-2 border-blue-500 bg-blue-500/20" /> ISP coverage</div>
       </div>
 
-      {/* Selected marker details */}
+      {/* Selected marker */}
       {selectedMarker && (
         <Card className="mt-4 p-4">
           <div className="flex items-start justify-between">
@@ -435,10 +341,8 @@ export default function AdminMapPage() {
                 {selectedMarker.details.isp && <p>📡 ISP: {selectedMarker.details.isp}</p>}
                 {selectedMarker.details.manufacturer && <p>🏭 Equipment: {selectedMarker.details.manufacturer}</p>}
                 {selectedMarker.details.customerCount !== undefined && <p>👥 Customers: {selectedMarker.details.customerCount}</p>}
-                {selectedMarker.details.routerCount !== undefined && <p>📡 Routers: {selectedMarker.details.routerCount}</p>}
                 {selectedMarker.details.confidence !== undefined && <p>📊 Confidence: {Math.round(selectedMarker.details.confidence * 100)}%</p>}
                 {selectedMarker.details.signalStrength !== undefined && <p>📶 Signal: {selectedMarker.details.signalStrength} dBm</p>}
-                {selectedMarker.details.providers && <p>🏢 Providers: {selectedMarker.details.providers.join(", ")}</p>}
                 {selectedMarker.details.source && <p>🔍 Source: {selectedMarker.details.source}</p>}
                 <p>🌐 Coords: {selectedMarker.lat.toFixed(4)}, {selectedMarker.lng.toFixed(4)}</p>
               </div>
@@ -448,13 +352,13 @@ export default function AdminMapPage() {
         </Card>
       )}
 
-      {/* Fiber Discovery Info */}
+      {/* Info */}
       <Card className="mt-4 p-4">
         <h3 className="text-sm font-semibold text-text-primary mb-2">🔍 How Fiber Discovery Works</h3>
         <div className="text-sm text-text-secondary space-y-1">
-          <p>• <strong>MAC OUI Detection:</strong> When customers connect to your routers, their device MAC addresses are checked against a database of known ISP equipment (Huawei, ZTE, etc.)</p>
-          <p>• <strong>WiFi Scanning:</strong> OpenWrt routers can scan for nearby WiFi networks and detect ISP-provided equipment by SSID patterns (HALOTEL, TTCL, YAS, etc.)</p>
-          <p>• <strong>Potential Customers:</strong> People using other ISPs nearby are marked as potential customers you can approach with your services</p>
+          <p>• <strong>MAC OUI Detection:</strong> Customer device MACs are checked against known ISP equipment (Huawei, ZTE, etc.)</p>
+          <p>• <strong>WiFi Scanning:</strong> OpenWrt routers scan for nearby ISP networks (HALOTEL, TTCL, YAS, etc.)</p>
+          <p>• <strong>Potential Customers:</strong> People using other ISPs nearby — approach them with your services</p>
         </div>
       </Card>
     </div>

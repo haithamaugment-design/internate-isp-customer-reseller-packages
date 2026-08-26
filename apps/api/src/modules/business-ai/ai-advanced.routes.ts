@@ -130,44 +130,4 @@ router.get("/referrals/stats", async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// Fiber Detection — MAC OUI + WiFi Scanning
-router.get("/fiber-detection", async (req, res, next) => {
-  try {
-    const auth = (req as any).auth;
-    const data = await fiberDetectionService.detectFiberFromCustomers(auth?.organizationId || auth?.id);
-    res.json({ data });
-  } catch (err) { next(err); }
-});
-
-router.get("/potential-customers", async (req, res, next) => {
-  try {
-    const auth = (req as any).auth;
-    const data = await fiberDetectionService.getPotentialFiberUsers(auth?.organizationId || auth?.id);
-    res.json({ data });
-  } catch (err) { next(err); }
-});
-
-router.get("/fiber-coverage-summary", async (req, res, next) => {
-  try {
-    const auth = (req as any).auth;
-    const data = await fiberDetectionService.getFiberCoverageSummary(auth?.organizationId || auth?.id);
-    res.json({ data });
-  } catch (err) { next(err); }
-});
-
-router.post("/wifi-scan/:routerId", async (req, res, next) => {
-  try {
-    const data = await fiberDetectionService.scanForNearbyFiber(req.params.routerId);
-    await fiberDetectionService.saveScanResults(req.params.routerId, data);
-    res.json({ data });
-  } catch (err) { next(err); }
-});
-
-router.get("/mac-lookup/:mac", async (req, res, next) => {
-  try {
-    const data = fiberDetectionService.lookupMAC(req.params.mac);
-    res.json({ data });
-  } catch (err) { next(err); }
-});
-
 export default router;
