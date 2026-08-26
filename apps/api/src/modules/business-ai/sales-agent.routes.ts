@@ -1,78 +1,78 @@
 /**
  * Public Sales Agent API — no auth required.
- * Handles visitor questions about NetMaster, pricing, features, getting started, etc.
+ * Uses the comprehensive sales brain + live blog/product data from the database.
  */
 
 import { Router } from "express";
 import { bedrockChat } from "./bedrock-llm";
+import { SALES_BRAIN, buildDynamicContext } from "./sales-brain";
+
+// Lazy-load prisma to avoid crash if DB is down
+let prisma: any = null;
+function getPrisma() {
+  if (!prisma) {
+    try {
+      prisma = require("../../prisma/client").prisma;
+    } catch {
+      // DB unavailable — will use static brain only
+    }
+  }
+  return prisma;
+}
 
 const router = Router();
 
-const SALES_SYSTEM_PROMPT = `You are NetMaster's friendly AI Sales Assistant. You help visitors learn about NetMaster — a cloud-managed ISP reseller platform for East Africa.
+// Cache for blog/product data (refresh every 10 minutes)
+let cachedContext: string | null = null;
+let cacheTime = 0;
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
-# YOUR ROLE
-You are a customer-facing sales agent. Your job is to:
-- Answer questions about NetMaster's features, pricing, and capabilities
-- Help visitors understand how NetMaster can grow their internet reselling business
-- Guide visitors toward signing up (link: /register)
-- Be warm, professional, and knowledgeable
+async function getFullSystemPrompt(): Promise<string> {
+  const now = Date.now();
 
-# WHAT YOU KNOW ABOUT NETMASTER
+  // Return cached if fresh
+  if (cachedContext && now - cacheTime < CACHE_TTL) {
+    return cachedContext;
+  }
 
-## Platform Features:
-- **Multi-Location Management**: Manage multiple offices/towns from one dashboard
-- **Instant Voucher System**: Generate and sell WiFi vouchers in seconds — daily, weekly, monthly
-- **Real-Time Analytics**: Track revenue per location, per router, per customer
-- **White-Label Branding**: Custom colors, logos, welcome messages on customer portal
-- **Revenue Tracking**: MRR, customer lifetime value, subscription renewals
-- **AI Business Partner**: AI-powered business planning that creates reseller plans automatically
-- **Router Management**: MikroTik RouterOS integration for bandwidth control
-- **Customer Portal**: Self-service voucher purchase portal for end customers
-- **Automated Billing**: Subscription management and invoice generation
-- **Support Tickets**: Built-in customer support system
-- **Network Health Monitoring**: Real-time router status and bandwidth monitoring
+  try {
+    const db = getPrisma();
+    if (db) {
+      // Load blog posts and products from the database
+      const [blogPosts, products] = await Promise.all([
+        db.blogPost.findMany({
+          where: { published: true },
+          select: { title: true, excerpt: true, tags: true },
+          orderBy: { createdAt: "desc" },
+          take: 30,
+        }).catch(() => []),
+        db.product.findMany({
+          where: { published: true },
+          select: { name: true, priceCents: true, description: true },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }).catch(() => []),
+      ]);
 
-## Pricing (TZS):
-- **Starter (Free)**: Up to 2 routers, 5% voucher commission, basic dashboard
-- **Growth (8,000 TZS/router/month)**: Unlimited routers, 0% commission, multi-location, white-label, advanced analytics
-- **Enterprise (25,000 TZS/router/month)**: Everything in Growth + API access, custom SLA, dedicated support, custom integrations
+      const productsWithPrice = products.map((p: any) => ({
+        name: p.name,
+        price: p.priceCents,
+        description: p.description,
+      }));
 
-## Compatible Hardware:
-- MikroTik hEX lite (RB750Gr3) — from 250,000 TZS
-- MikroTik hEX refresh (RB760IGS) — from 450,000 TZS
-- MikroTik RB4011 — from 1,200,000 TZS
-- MikroTik RB5009 — from 2,500,000 TZS
-- OpenWrt-compatible routers (TP-Link, etc.)
+      cachedContext = buildDynamicContext(blogPosts, productsWithPrice);
+      cacheTime = now;
+      return cachedContext;
+    }
+  } catch {
+    // DB error — fall through to static brain
+  }
 
-## How It Works (4 Steps):
-1. Sign Up Free — create account in 30 seconds
-2. Add Locations — set up offices with unique hotspot portals
-3. Connect Routers — register MikroTik routers, link to locations
-4. Start Selling — create packages, generate vouchers, watch revenue grow
-
-## Supported ISPs:
-Yas Fiber, Halotel, TTCL, Savanna Fibre, BLINK, Konnect, GoFiber, Airtel, Starlink
-
-## Key Stats:
-- 500+ active resellers across East Africa
-- 50,000+ customers served
-- 99.9% uptime SLA
-- 24/7 support
-
-# CONVERSATION RULES:
-- Be friendly, warm, and professional
-- Use a mix of Swahili and English naturally when the visitor does
-- Keep responses SHORT (2-4 sentences max) — don't write essays
-- Always offer to help with next steps
-- When they seem interested, guide them to /register
-- When they ask about pricing, mention all 3 tiers clearly
-- When they ask about features, be specific with examples
-- If they mention "reseller" or "start business", be encouraging and point to the AI Business Partner feature
-- If they ask about routers, mention the Shop (/shop)
-- If they ask about blog/tutorials, point to /blog
-- Never make up features that don't exist
-- If you don't know something specific, say "Let me connect you with our team" rather than guessing
-- End each response with a helpful follow-up or call to action`;
+  // Static fallback
+  cachedContext = SALES_BRAIN;
+  cacheTime = now;
+  return SALES_BRAIN;
+}
 
 // Store conversation history per session (in-memory, ephemeral)
 const sessions = new Map<string, Array<{ role: "user" | "assistant"; content: string }>>();
@@ -93,26 +93,29 @@ router.post("/chat", async (req, res) => {
     }
     const history = sessions.get(sid)!;
 
-    // Keep last 10 messages for context
-    const contextMessages = history.slice(-10);
+    // Keep last 12 messages for context
+    const contextMessages = history.slice(-12);
 
     // Add user message to history
     contextMessages.push({ role: "user", content: message.trim() });
 
-    // Call Bedrock AI
+    // Get the full system prompt (brain + live data)
+    const systemPrompt = await getFullSystemPrompt();
+
+    // Call Bedrock AI with the comprehensive brain
     const response = await bedrockChat(contextMessages, {
-      systemPrompt: SALES_SYSTEM_PROMPT,
-      temperature: 0.7,
-      maxTokens: 1024,
+      systemPrompt,
+      temperature: 0.65, // Slightly higher for more natural conversation
+      maxTokens: 1500,   // Keep responses focused
     });
 
     // Add assistant response to history
     history.push({ role: "user", content: message.trim() });
     history.push({ role: "assistant", content: response.text });
 
-    // Keep session under 20 messages
-    if (history.length > 20) {
-      sessions.set(sid, history.slice(-20));
+    // Keep session under 24 messages
+    if (history.length > 24) {
+      sessions.set(sid, history.slice(-24));
     }
 
     res.json({
@@ -124,20 +127,43 @@ router.post("/chat", async (req, res) => {
 
     // Fallback response if AI is down
     res.json({
-      reply: "Thanks for your interest in NetMaster! I'm experiencing a brief technical issue, but I'd love to help. You can:\n\n• **Sign up free** at /register\n• **Browse our plans** — Starter is free, Growth is 8,000 TZS/router/month\n• **Check our shop** for compatible MikroTik routers\n\nOr try asking your question again in a moment! 😊",
+      reply: getFallbackResponse(req.body.message || ""),
       sessionId: req.body.sessionId || `sales-fallback-${Date.now()}`,
     });
   }
 });
 
+// Endpoint to refresh the brain cache (admin use)
+router.post("/refresh-brain", async (_req, res) => {
+  cachedContext = null;
+  cacheTime = 0;
+  res.json({ message: "Brain cache cleared. Will refresh on next chat." });
+});
+
+function getFallbackResponse(message: string): string {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("bei") || lower.includes("price") || lower.includes("cost") || lower.includes("pesa")) {
+    return "💰 **Bei za NetMaster:**\n\n• **Starter**: BURE — hadi routers 2, 5% komisio\n• **Growth**: 8,000 TZS/router/mwezi — routers zisizo na kikomo, 0% komisio\n• **Enterprise**: 25,000 TZS/router/mwezi — API, SLA maalum\n\nUnaweza kuanza BURE kabisa. Bonyeza [Get Started](/register) ili kuunda account yako!";
+  }
+
+  if (lower.includes("router") || lower.includes("mikrotik") || lower.includes("openwrt") || lower.includes("tp-link")) {
+    return "📡 **Routers za Kuanza:**\n\n• **TP-Link Archer C6** — ~65,000 TZS (inafanya kazi na OpenWRT) ⭐\n• **TP-Link WR841N** — ~30,000 TZS (budget kabisa)\n• **GL.iNet GL-MT300N** — ~40,000 TZS (compact)\n\nUnaweza kuanza na router ya laki nusu tu! Angalia [Shop](/shop) kwa zaidi.";
+  }
+
+  if (lower.includes("kuanza") || lower.includes("start") || lower.includes("how") || lower.includes("jinsi")) {
+    return "🚀 **Jinsi ya Kuanza:**\n\n1. **Jisajili** — Bonyeza [Get Started](/register) na uunde account (30 sekunde)\n2. **Ongeza eneo** — Weka ofisi/yako\n3. **Unganisha router** — Weka MikroTik au OpenWRT router\n4. **Uuze vouchera** — Tengeneza na uuze!\n\nAI yetu itakusaidia kila hatua. Anza BURE leo!";
+  }
+
+  return "Asante kwa maswali yako! 😊\n\nMimi ni sales agent wa NetMaster. Ninaweza kukusaidia na:\n• 💰 **Bei na mipango** — Anza bure!\n• 📡 **Routers** — Chagua router sahihi\n• 🚀 **Jinsi ya kuanza** — Hatua kwa hatua\n• 🎯 **AI Business Partner** — AI inakupangia biashara\n\nNiulize chochote, au bonyeza [Get Started](/register) kuunda account yako leo!";
+}
+
 // Cleanup old sessions every 30 minutes
 setInterval(() => {
-  const cutoff = Date.now() - 30 * 60 * 1000;
-  for (const [key] of sessions) {
-    // Simple heuristic: remove sessions older than 30min
-    // (In production, use Redis with TTL)
-    if (sessions.size > 1000) {
-      sessions.delete(key);
+  if (sessions.size > 500) {
+    const keys = Array.from(sessions.keys());
+    for (let i = 0; i < Math.floor(keys.length / 2); i++) {
+      sessions.delete(keys[i]);
     }
   }
 }, 30 * 60 * 1000);
