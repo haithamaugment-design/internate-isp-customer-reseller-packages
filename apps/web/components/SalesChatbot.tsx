@@ -122,21 +122,23 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
       .replace(/\n- /g, "\n• ")
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[var(--accent-blue)] underline hover:text-[var(--accent-blue)]/80" target="_blank" rel="noopener">$1</a>');
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#0A84FF;text-decoration:underline" target="_blank" rel="noopener">$1</a>');
 
     return html;
   };
+
+  // Inline styles to guarantee colors render regardless of CSS variable issues
+  const darkText: React.CSSProperties = { color: "#1a1a1a" };
+  const medText: React.CSSProperties = { color: "#374151" };
+  const lightText: React.CSSProperties = { color: "#888" };
 
   return (
     <>
       {/* ═══ FLOATING BUTTON ═══ */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 group ${
-          isOpen
-            ? "bg-white border border-gray-200 text-gray-700"
-            : "bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] text-white shadow-[var(--accent-blue)]/40"
-        }`}
+        className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110"
+        style={isOpen ? { background: "#ffffff", border: "1px solid #e5e7eb", color: "#374151" } : { background: "linear-gradient(135deg, #0A84FF, #BF5AF2)", color: "#ffffff" }}
         aria-label={isOpen ? "Close chat" : "Chat with sales assistant"}
       >
         {isOpen ? (
@@ -149,33 +151,32 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         )}
-        {/* Pulse dot */}
         {!isOpen && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[var(--accent-green)] rounded-full border-2 border-white animate-pulse" />
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white animate-pulse" style={{ background: "#30D158" }} />
         )}
       </button>
 
       {/* ═══ CHAT WINDOW ═══ */}
       {isOpen && (
         <div
-          className="fixed bottom-24 right-6 z-[9998] w-[400px] max-w-[calc(100vw-48px)] h-[560px] max-h-[calc(100vh-140px)] rounded-2xl overflow-hidden shadow-2xl border border-[var(--hairline)] flex flex-col"
-          style={{ background: "#ffffff" }}
+          className="fixed bottom-24 right-6 z-[9998] w-[400px] max-w-[calc(100vw-48px)] h-[560px] max-h-[calc(100vh-140px)] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+          style={{ background: "#f0f2f5", border: "1px solid #d1d5db" }}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple)] px-5 py-4 flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+          <div className="px-5 py-4 flex items-center gap-3 shrink-0" style={{ background: "linear-gradient(135deg, #0A84FF, #BF5AF2)" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.2)" }}>
               <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="white" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 20h.01M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h.01M20 12h.01M6.34 17.66l-2.83 2.83M19.07 4.93l-2.83 2.83" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-white font-bold text-sm">NetMaster Sales</h3>
-              <p className="text-white/70 text-xs flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-green)]" />
+              <p className="text-xs flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.7)" }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#30D158" }} />
                 AI-Powered • Online now
               </p>
             </div>
-            <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-white/15 text-white/80 text-[10px] font-medium shrink-0">
+            <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium shrink-0" style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
@@ -183,37 +184,32 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
             </div>
           </div>
 
-          {/* Messages */}
+          {/* Messages area */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth">
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-2 duration-300`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-blue)]/90 text-white rounded-br-md shadow-md shadow-[var(--accent-blue)]/10"
-                      : "bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm"
-                  }`}
-                >
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: renderMessageContent(msg.content),
-                    }}
-                  />
-                </div>
+              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                {msg.role === "user" ? (
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 text-sm leading-relaxed text-white shadow-md" style={{ background: "linear-gradient(135deg, #0A84FF, #0A84FF)" }}>
+                    <div dangerouslySetInnerHTML={{ __html: renderMessageContent(msg.content) }} />
+                  </div>
+                ) : (
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-sm leading-relaxed shadow-sm" style={{ background: "#ffffff", border: "1px solid #e5e7eb", color: "#1a1a1a" }}>
+                    <div dangerouslySetInnerHTML={{ __html: renderMessageContent(msg.content) }} />
+                  </div>
+                )}
               </div>
             ))}
 
-            {/* Loading indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+                <div className="rounded-2xl rounded-bl-md px-4 py-3 shadow-sm" style={{ background: "#ffffff", border: "1px solid #e5e7eb" }}>
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "#0A84FF", animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "#0A84FF", animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "#0A84FF", animationDelay: "300ms" }} />
                     </div>
-                    <span className="text-xs text-gray-500">Thinking...</span>
+                    <span className="text-xs" style={{ color: "#888" }}>Thinking...</span>
                   </div>
                 </div>
               </div>
@@ -232,7 +228,8 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                     setShowQuickActions(false);
                     sendMessage(action.message);
                   }}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:text-[var(--accent-blue)] hover:border-[var(--accent-blue)]/40 hover:bg-blue-50 transition-all duration-200"
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200"
+                  style={{ background: "#ffffff", border: "1px solid #e5e7eb", color: "#374151" }}
                 >
                   {action.icon} {action.label}
                 </button>
@@ -240,9 +237,9 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
             </div>
           )}
 
-          {/* Input */}
+          {/* Input area */}
           <div className="px-4 pb-4 pt-2 shrink-0">
-            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-[var(--accent-blue)]/50 focus-within:ring-2 focus-within:ring-[var(--accent-blue)]/10 transition-all">
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "#ffffff", border: "1px solid #e5e7eb" }}>
               <input
                 ref={inputRef}
                 type="text"
@@ -250,13 +247,15 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about routers, pricing, features..."
-                className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: "#1a1a1a" }}
                 disabled={isLoading}
               />
               <button
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || isLoading}
-                className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-blue)]/80 text-white flex items-center justify-center hover:shadow-md hover:shadow-[var(--accent-blue)]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shrink-0"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shrink-0"
+                style={{ background: "linear-gradient(135deg, #0A84FF, #0A84FF)" }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />
@@ -264,7 +263,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                 </svg>
               </button>
             </div>
-            <p className="text-center text-[10px] text-gray-400 mt-2">
+            <p className="text-center text-[10px] mt-2" style={{ color: "#999" }}>
               Powered by NetMaster AI • Knows all our features & routers
             </p>
           </div>
