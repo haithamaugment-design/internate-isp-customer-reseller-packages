@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { TicketsService } from "./tickets.service";
+import { TicketAIService } from "../business-ai/ticket-ai.service";
 import {
   addCommentSchema,
   assignTicketSchema,
@@ -9,12 +10,22 @@ import {
 } from "./tickets.dto";
 
 const service = new TicketsService();
+const ticketAI = new TicketAIService();
 
 export class TicketsController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const input = createTicketSchema.parse(req.body);
       const ticket = await service.create(input, req.orgIds ?? [], req.auth!.id, req.auth!.organizationId);
+
+      // Trigger AI auto-classification (non-blocking — don't fail the request if AI is slow)
+      ticketAI.autoRespondToTicket(
+        ticket.id,
+        input.subject,
+        input.description ?? null,
+        req.auth!.organizationId
+      ).catch((err) => console.error("[TicketAI] Auto-response failed (non-fatal):", err));
+
       res.status(201).json({ data: ticket });
     } catch (err) {
       next(err);
@@ -68,6 +79,26 @@ export class TicketsController {
   async dashboard(req: Request, res: Response, next: NextFunction) {
     try {
       res.json({ data: await service.dashboard(req.orgIds ?? [], req.auth!.id) });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** Get AI-suggested response for a ticket */
+  async suggestResponse(req: Request, res: Response, next: NextFunction) {
+    try {
+      const suggestion = await ticketAI.suggestResponse(req.params.id);
+      res.json({ data: suggestion });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** Get ticket analytics */
+  async analytics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await ticketAI.getTicketAnalytics(req.orgIds ?? []);
+      res.json({ data });
     } catch (err) {
       next(err);
     }

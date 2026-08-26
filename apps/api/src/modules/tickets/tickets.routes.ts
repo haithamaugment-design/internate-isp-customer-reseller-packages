@@ -17,4 +17,8 @@ router.patch("/:id", roleGuard("PLATFORM_OWNER", "ISP_ADMIN", "SUPPORT_AGENT"), 
 router.post("/:id/comments", roleGuard("PLATFORM_OWNER", "ISP_ADMIN", "SUPPORT_AGENT"), controller.addComment);
 router.post("/:id/assign", roleGuard("PLATFORM_OWNER", "ISP_ADMIN", "SUPPORT_AGENT"), controller.assign);
 
+// AI-powered endpoints
+router.get("/analytics", roleGuard("PLATFORM_OWNER", "ISP_ADMIN", "SUPPORT_AGENT"), controller.analytics);
+router.get("/:id/suggest-response", roleGuard("PLATFORM_OWNER", "ISP_ADMIN", "SUPPORT_AGENT"), controller.suggestResponse);
+
 export default router;

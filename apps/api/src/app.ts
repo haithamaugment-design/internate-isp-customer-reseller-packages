@@ -19,6 +19,8 @@ import hotspotRoutes from "./modules/hotspot/hotspot.routes";
 import ticketRoutes from "./modules/tickets/tickets.routes";
 import notificationRoutes from "./modules/notifications/notifications.routes";
 import cronRoutes from "./modules/cron/cron.routes";
+import alertsRoutes from "./modules/alerts/alerts.routes";
+import mapRoutes from "./modules/map/map.routes";
 import subscriptionRoutes from "./modules/subscriptions/subscriptions.routes";
 import productRoutes from "./modules/products/products.routes";
 import setupRoutes from "./modules/setup/setup.routes";
@@ -49,6 +51,8 @@ app.use("/api/v1/tickets", apiRateLimit, ticketRoutes);
 app.use("/api/v1/notifications", apiRateLimit, notificationRoutes);
 app.use("/api/v1/cron", cronRoutes);
 app.use("/api/v1/subscriptions", apiRateLimit, subscriptionRoutes);
+app.use("/api/v1/alerts", apiRateLimit, alertsRoutes);
+app.use("/api/v1/map", apiRateLimit, mapRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/setup", setupRoutes);
 

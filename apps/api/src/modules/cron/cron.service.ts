@@ -92,18 +92,94 @@ export class CronService {
   }
 
   /**
-   * Run all expiration checks and return a combined report.
+   * Run voucher expiry alert checks — creates notifications for resellers
+   * when their unused vouchers are about to expire within 24 hours.
+   */
+  async runExpiryAlertChecks(): Promise<{ notified: number; errors: number }> {
+    const now = new Date();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // Find all orgs with unused vouchers expiring soon
+    const expiringVouchers = await prisma.voucher.findMany({
+      where: {
+        status: "UNUSED",
+        expiresAt: { not: null, gt: now, lte: in24h },
+      },
+      include: {
+        location: { select: { name: true, organizationId: true } },
+      },
+    });
+
+    // Group by organization
+    const byOrg = new Map<string, typeof expiringVouchers>();
+    for (const v of expiringVouchers) {
+      const orgId = v.organizationId;
+      if (!byOrg.has(orgId)) byOrg.set(orgId, []);
+      byOrg.get(orgId)!.push(v);
+    }
+
+    let notified = 0;
+    let errors = 0;
+
+    for (const [orgId, vouchers] of byOrg) {
+      try {
+        // Find reseller users in this org
+        const resellerUsers = await prisma.user.findMany({
+          where: { organizationId: orgId, role: "RESELLER" },
+          select: { id: true },
+        });
+
+        const hoursUntil = Math.round(
+          (vouchers[0].expiresAt!.getTime() - now.getTime()) / (1000 * 60 * 60)
+        );
+
+        // Create notification for each reseller user
+        for (const user of resellerUsers) {
+          // Check if we already notified this user recently (within 6 hours)
+          const recentNotification = await prisma.notification.findFirst({
+            where: {
+              customerId: user.id,
+              kind: "VOUCHER_EXPIRY",
+              createdAt: { gte: new Date(now.getTime() - 6 * 60 * 60 * 1000) },
+            },
+          });
+
+          if (!recentNotification) {
+            await prisma.notification.create({
+              data: {
+                customerId: user.id,
+                kind: "VOUCHER_EXPIRY",
+                title: `⚠️ ${vouchers.length} voucher${vouchers.length > 1 ? "s" : ""} expiring in ${hoursUntil}h`,
+                body: `${vouchers.length} unused voucher${vouchers.length > 1 ? "s" : ""} will expire within ${hoursUntil} hours. ${vouchers[0].location?.name ? `Location: ${vouchers[0].location.name}.` : ""} Sell or reassign them before they expire.`,
+              },
+            });
+            notified++;
+          }
+        }
+      } catch (err) {
+        console.error(`[Cron] Failed to create expiry notifications for org ${orgId}:`, err);
+        errors++;
+      }
+    }
+
+    return { notified, errors };
+  }
+
+  /**
+   * Run all expiration checks and alert checks, return a combined report.
    */
   async runAllChecks() {
-    const [subscriptionResult, voucherResult] = await Promise.all([
+    const [subscriptionResult, voucherResult, alertResult] = await Promise.all([
       this.checkExpiredSubscriptions(),
       this.checkExpiredVouchers(),
+      this.runExpiryAlertChecks(),
     ]);
 
     return {
       timestamp: new Date().toISOString(),
       subscriptions: subscriptionResult,
       vouchers: voucherResult,
+      alerts: alertResult,
     };
   }
 }

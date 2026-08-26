@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 
 const items = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/admin/map", label: "Network Map", icon: "location" },
   { href: "/admin/isps", label: "ISPs", icon: "router" },
   { href: "/admin/blog", label: "Blog", icon: "dashboard" },
   { href: "/admin/products", label: "Products", icon: "dashboard" },
