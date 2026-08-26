@@ -255,14 +255,18 @@ export async function bedrockChat(
   const bedrock = getClient();
 
   // Build messages array for chat models (DeepSeek, Claude, etc.)
+  // DeepSeek V3.2 on Bedrock may not support the 'system' role in messages,
+  // so we include the system prompt as the first user message as a fallback.
+  const systemContent = options?.systemPrompt || SYSTEM_PROMPT;
   const chatMessages = [
-    { role: "system", content: options?.systemPrompt || SYSTEM_PROMPT },
+    { role: "system" as const, content: systemContent },
+    { role: "user" as const, content: `[SYSTEM INSTRUCTIONS — follow these rules exactly]\n\n${systemContent}` },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 
   const inputBody = JSON.stringify({
     messages: chatMessages,
-    max_tokens: options?.maxTokens || 1024,
+    max_tokens: options?.maxTokens || 4096,
     temperature: options?.temperature ?? 0.3,
     top_p: 0.85,
   });
