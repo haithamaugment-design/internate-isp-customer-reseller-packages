@@ -5,7 +5,7 @@
 
 import { Router } from "express";
 import { bedrockChat } from "./bedrock-llm";
-import { SALES_BRAIN, buildDynamicContext } from "./sales-brain";
+import { SALES_BRAIN, buildDynamicContext, type ProductContext, type BlogPostContext } from "./sales-brain";
 
 // Lazy-load prisma to avoid crash if DB is down
 let prisma: any = null;
@@ -38,29 +38,37 @@ async function getFullSystemPrompt(): Promise<string> {
   try {
     const db = getPrisma();
     if (db) {
-      // Load blog posts and products from the database
+      // Load blog posts and products with full specs from the database
       const [blogPosts, products] = await Promise.all([
         db.blogPost.findMany({
           where: { published: true },
-          select: { title: true, excerpt: true, tags: true },
+          select: { title: true, excerpt: true, tags: true, content: true },
           orderBy: { createdAt: "desc" },
           take: 30,
         }).catch(() => []),
         db.product.findMany({
           where: { published: true },
-          select: { name: true, priceCents: true, description: true },
-          orderBy: { createdAt: "desc" },
+          select: { name: true, priceCents: true, description: true, specs: true, slug: true },
+          orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
           take: 20,
         }).catch(() => []),
       ]);
 
-      const productsWithPrice = products.map((p: any) => ({
+      const blogContext: BlogPostContext[] = blogPosts.map((p: any) => ({
+        title: p.title,
+        excerpt: p.excerpt,
+        tags: p.tags,
+      }));
+
+      const productContext: ProductContext[] = products.map((p: any) => ({
         name: p.name,
         price: p.priceCents,
         description: p.description,
+        specs: p.specs,
+        slug: p.slug,
       }));
 
-      cachedContext = buildDynamicContext(blogPosts, productsWithPrice);
+      cachedContext = buildDynamicContext(blogContext, productContext);
       cacheTime = now;
       return cachedContext;
     }
@@ -148,7 +156,7 @@ function getFallbackResponse(message: string): string {
   }
 
   if (lower.includes("router") || lower.includes("mikrotik") || lower.includes("openwrt") || lower.includes("tp-link")) {
-    return "📡 **Routers za Kuanza:**\n\n• **TP-Link Archer C6** — ~65,000 TZS (inafanya kazi na OpenWRT) ⭐\n• **TP-Link WR841N** — ~30,000 TZS (budget kabisa)\n• **GL.iNet GL-MT300N** — ~40,000 TZS (compact)\n\nUnaweza kuanza na router ya laki nusu tu! Angalia [Shop](/shop) kwa zaidi.";
+    return "📡 **Routers za Kuanza:**\n\nTuna routers tofauti kulingana na bajeti yako. Angalia [Shop](/shop) kwa bei halisi na maelezo kamili ya kila router — ikiwa ni pamoja na uongozi wa OpenWRT na MikroTik.\n\nUnaweza kuanza na router ya bei nafuu na kukua biashara yako polepole.";
   }
 
   if (lower.includes("kuanza") || lower.includes("start") || lower.includes("how") || lower.includes("jinsi")) {

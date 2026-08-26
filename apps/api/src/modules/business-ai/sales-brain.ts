@@ -282,46 +282,86 @@ Use this when customers ask about ISP costs:
 
 ## 📏 CRITICAL RULES
 
-1. **ALWAYS suggest cheap routers first** — never push expensive hardware on new customers
-2. **Never refuse to help** — if someone asks a question, answer it fully
-3. **Be encouraging** — "Unaweza!" not "Si rahisi"
-4. **Use real numbers** — TZS amounts, percentages, timeframes
-5. **Mix Swahili + English** naturally — technical in English, rapport in Swahili
-6. **Guide to registration** — always end with a clear next step
-7. **Know the platform** — you can explain ANY feature
-8. **Never make up features** — only describe what exists
-9. **If unsure, say** "Nitaangalia na kukujibu" rather than guessing
-10. **Always be honest about pricing** — never hide costs
+1. **ONLY reference routers/products that exist in the DATABASE** — the sections above are general knowledge, but when recommending a specific router to a customer, ONLY use routers listed in the "AVAILABLE PRODUCTS IN SHOP" and "BLOG ARTICLES" sections below. If those sections are empty or don't contain the router, say: "Let me check our shop for the latest available routers" and direct them to /shop.
+2. **NEVER claim a router supports OpenWRT or MikroTik unless it is EXPLICITLY stated in the product specs or blog content from the database.** If you are unsure about a router's compatibility, say: "I recommend checking our shop (/shop) or blog (/blog) for the exact specifications and setup guides for that router."
+3. **ALWAYS suggest cheap routers first** — never push expensive hardware on new customers
+4. **Never refuse to help** — if someone asks a question, answer it fully
+5. **Be encouraging** — "Unaweza!" not "Si rahisi"
+6. **Use real numbers** — TZS amounts, percentages, timeframes
+7. **Mix Swahili + English** naturally — technical in English, rapport in Swahili
+8. **Guide to registration** — always end with a clear next step
+9. **Know the platform** — you can explain ANY feature
+10. **Never make up features** — only describe what exists in the database
+11. **If unsure, say** "Nitaangalia na kukujibu" rather than guessing
+12. **Always be honest about pricing** — never hide costs
+13. **When mentioning a router's price, only use the price from the database product listing.** If no product exists, say: "Check our shop (/shop) for current prices."
+14. **If the AVAILABLE PRODUCTS section below is empty**, do NOT invent router names, prices, or capabilities. Instead say: "I recommend visiting our shop at /shop to see our current router offerings with verified specifications."
 `;
 
 // ═══════════════════════════════════════════════════════════════
 // HELPER: Build dynamic prompt with blog/product context
 // ═══════════════════════════════════════════════════════════════
 
-export function buildDynamicContext(blogPosts?: Array<{ title: string; excerpt?: string | null; tags?: string[] }>, products?: Array<{ name: string; price?: number; description?: string | null }>): string {
+export interface BlogPostContext {
+  title: string;
+  excerpt?: string | null;
+  tags?: string[];
+  content?: string | null;
+}
+
+export interface ProductContext {
+  name: string;
+  price?: number;
+  description?: string | null;
+  specs?: Record<string, unknown> | null;
+  slug?: string;
+}
+
+export function buildDynamicContext(blogPosts?: BlogPostContext[], products?: ProductContext[]): string {
   let context = SALES_BRAIN;
 
   if (blogPosts && blogPosts.length > 0) {
-    context += "\n\n## 📚 AVAILABLE BLOG ARTICLES\n";
-    context += "You can reference these articles when helping customers:\n";
-    for (const post of blogPosts.slice(0, 20)) {
+    context += "\n\n## 📚 AVAILABLE BLOG ARTICLES (from database)\n";
+    context += "ONLY reference these articles when helping customers. These are REAL articles on our platform:\n";
+    for (const post of blogPosts.slice(0, 25)) {
       context += `- **${post.title}**`;
-      if (post.excerpt) context += `: ${post.excerpt.substring(0, 120)}`;
+      if (post.excerpt) context += `: ${post.excerpt.substring(0, 150)}`;
+      if (post.tags && post.tags.length > 0) context += ` [tags: ${post.tags.join(", ")}]`;
       context += "\n";
     }
-    context += "\nWhen a customer asks about setup or configuration, tell them: 'Tuna blog za hatua kwa hatua kwa kila router — angalia /blog kwa maelekezo kamili.'\n";
+    context += "\nWhen a customer asks about setup or configuration, ONLY reference these specific articles. Say: 'Check our blog for the guide on [exact article title]'.\n";
+    context += "If no relevant blog exists, say: 'We're working on a guide for that — check back soon at /blog.'\n";
+  } else {
+    context += "\n\n## 📚 BLOG ARTICLES\n";
+    context += "No blog articles are currently available in the database. Do NOT invent article titles. Say: 'Check our blog at /blog for the latest guides.'\n";
   }
 
   if (products && products.length > 0) {
-    context += "\n\n## 🛒 AVAILABLE PRODUCTS IN SHOP\n";
-    context += "These routers are available in our shop right now:\n";
+    context += "\n\n## 🛒 AVAILABLE PRODUCTS IN SHOP (from database) — USE ONLY THESE\n";
+    context += "These are the ONLY routers/products you should recommend. These exist in our real shop:\n";
     for (const product of products) {
       context += `- **${product.name}**`;
       if (product.price) context += ` — ${product.price.toLocaleString()} TZS`;
-      if (product.description) context += `: ${product.description.substring(0, 100)}`;
+      if (product.description) context += `: ${product.description.substring(0, 120)}`;
+      if (product.specs) {
+        const specs = product.specs;
+        const features: string[] = [];
+        if (specs.wifi) features.push(`WiFi: ${specs.wifi}`);
+        if (specs.openwrt) features.push(`OpenWRT: ${specs.openwrt}`);
+        if (specs.mikrotik) features.push(`MikroTik: ${specs.mikrotik}`);
+        if (specs.firmware) features.push(`Firmware: ${specs.firmware}`);
+        if (specs.features && Array.isArray(specs.features)) features.push(specs.features.join(", "));
+        if (specs.compatibility) features.push(`Compatible: ${specs.compatibility}`);
+        if (features.length > 0) context += ` [${features.join(", ")}]`;
+      }
+      if (product.slug) context += ` → /shop/${product.slug}`;
       context += "\n";
     }
-    context += "\nAlways recommend products from our shop when relevant. Link: /shop\n";
+    context += "\nIMPORTANT: Only recommend these specific products. Do NOT invent router names, prices, or claim OpenWRT/MikroTik support unless the specs above explicitly say so.\n";
+    context += "Always link to the product page: /shop/[product-slug]\n";
+  } else {
+    context += "\n\n## 🛒 PRODUCTS IN SHOP\n";
+    context += "No products are currently listed in the database. Do NOT invent product names or prices. Say: 'Visit our shop at /shop to see our current router offerings with verified specifications and prices.'\n";
   }
 
   return context;
