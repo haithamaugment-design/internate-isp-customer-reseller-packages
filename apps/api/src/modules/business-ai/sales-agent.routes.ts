@@ -38,11 +38,11 @@ async function getFullSystemPrompt(): Promise<string> {
   try {
     const db = getPrisma();
     if (db) {
-      // Load blog posts and products with full specs from the database
-      const [blogPosts, products] = await Promise.all([
+      // Load ALL dynamic data from the database in parallel
+      const [blogPosts, products, packages, blogCategories, productCategories, siteSettings, resellerCount, customerCount] = await Promise.all([
         db.blogPost.findMany({
           where: { published: true },
-          select: { title: true, excerpt: true, tags: true, content: true },
+          select: { title: true, excerpt: true, tags: true },
           orderBy: { createdAt: "desc" },
           take: 30,
         }).catch(() => []),
@@ -52,6 +52,29 @@ async function getFullSystemPrompt(): Promise<string> {
           orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
           take: 20,
         }).catch(() => []),
+        // ISP packages available (fiber plans resellers can buy)
+        db.package.findMany({
+          select: { name: true, speedMbps: true, dataCapGb: true, priceCents: true, currency: true },
+          orderBy: { priceCents: "asc" },
+          take: 20,
+        }).catch(() => []),
+        // Blog categories
+        db.blogCategory.findMany({
+          select: { name: true, description: true },
+          orderBy: { name: "asc" },
+        }).catch(() => []),
+        // Product categories
+        db.productCategory.findMany({
+          select: { name: true, description: true },
+          orderBy: { name: "asc" },
+        }).catch(() => []),
+        // Site settings (may contain ISP prices, platform config, etc.)
+        db.siteSetting.findMany({
+          select: { key: true, value: true },
+        }).catch(() => []),
+        // Platform stats
+        db.organization.count({ where: { type: "RESELLER", status: "ACTIVE" } }).catch(() => 0),
+        db.customer.count().catch(() => 0),
       ]);
 
       const blogContext: BlogPostContext[] = blogPosts.map((p: any) => ({
@@ -68,7 +91,22 @@ async function getFullSystemPrompt(): Promise<string> {
         slug: p.slug,
       }));
 
-      cachedContext = buildDynamicContext(blogContext, productContext);
+      // Build site settings map
+      const settingsMap: Record<string, unknown> = {};
+      for (const s of siteSettings) {
+        settingsMap[s.key] = s.value;
+      }
+
+      cachedContext = buildDynamicContext({
+        blogPosts: blogContext,
+        products: productContext,
+        packages,
+        blogCategories,
+        productCategories,
+        siteSettings: settingsMap,
+        resellerCount,
+        customerCount,
+      });
       cacheTime = now;
       return cachedContext;
     }
@@ -152,7 +190,7 @@ function getFallbackResponse(message: string): string {
   const lower = message.toLowerCase();
 
   if (lower.includes("bei") || lower.includes("price") || lower.includes("cost") || lower.includes("pesa")) {
-    return "💰 **Bei za NetMaster:**\n\n• **Starter**: BURE — hadi routers 2, 5% komisio\n• **Growth**: 8,000 TZS/router/mwezi — routers zisizo na kikomo, 0% komisio\n• **Enterprise**: 25,000 TZS/router/mwezi — API, SLA maalum\n\nUnaweza kuanza BURE kabisa. Bonyeza [Get Started](/register) ili kuunda account yako!";
+    return "💰 **Bei za NetMaster:**\n\nTuna mipango tofauti kulingana na ukuaji wako. Angalia [Pricing](/#pricing) kwa bei halisi na vipengele vya kila mpango.\n\nUnaweza kuanza BURE kabisa. Bonyeza [Get Started](/register) ili kuunda account yako!";
   }
 
   if (lower.includes("router") || lower.includes("mikrotik") || lower.includes("openwrt") || lower.includes("tp-link")) {

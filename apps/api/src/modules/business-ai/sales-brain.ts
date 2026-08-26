@@ -306,7 +306,6 @@ export interface BlogPostContext {
   title: string;
   excerpt?: string | null;
   tags?: string[];
-  content?: string | null;
 }
 
 export interface ProductContext {
@@ -317,9 +316,81 @@ export interface ProductContext {
   slug?: string;
 }
 
-export function buildDynamicContext(blogPosts?: BlogPostContext[], products?: ProductContext[]): string {
-  let context = SALES_BRAIN;
+export interface PackageContext {
+  name: string;
+  speedMbps: number;
+  dataCapGb: number | null;
+  priceCents: number;
+  currency: string;
+}
 
+export interface DynamicContextInput {
+  blogPosts?: BlogPostContext[];
+  products?: ProductContext[];
+  packages?: PackageContext[];
+  blogCategories?: Array<{ name: string; description?: string | null }>;
+  productCategories?: Array<{ name: string; description?: string | null }>;
+  siteSettings?: Record<string, unknown>;
+  resellerCount?: number;
+  customerCount?: number;
+}
+
+export function buildDynamicContext(input: DynamicContextInput): string {
+  let context = SALES_BRAIN;
+  const { blogPosts, products, packages, blogCategories, productCategories, siteSettings, resellerCount, customerCount } = input;
+
+  // ── Platform stats ──
+  context += "\n\n## 📊 LIVE PLATFORM STATS\n";
+  context += `- Active resellers: ${resellerCount || 0}\n`;
+  context += `- Total customers served: ${customerCount || 0}\n`;
+  context += "Use these real numbers when building trust: 'Join [X] resellers already using NetMaster'.\n";
+
+  // ── ISP Packages (fiber plans available) ──
+  if (packages && packages.length > 0) {
+    context += "\n\n## 🌍 AVAILABLE FIBER/ISP PACKAGES (from database)\n";
+    context += "These are real ISP packages available through our platform. Use these actual prices when discussing costs:\n";
+    for (const pkg of packages) {
+      context += `- **${pkg.name}**: ${pkg.speedMbps}Mbps`;
+      if (pkg.dataCapGb) context += `, ${pkg.dataCapGb}GB cap`;
+      context += ` — ${pkg.priceCents.toLocaleString()} ${pkg.currency}\n`;
+    }
+    context += "\nIMPORTANT: Only reference these actual packages when discussing ISP costs. Do NOT invent ISP names or prices.\n";
+  } else {
+    context += "\n\n## 🌍 FIBER/ISP PACKAGES\n";
+    context += "No ISP packages are currently configured in the database. Say: 'Contact us for current ISP fiber pricing.'\n";
+  }
+
+  // ── Blog categories ──
+  if (blogCategories && blogCategories.length > 0) {
+    context += "\n\n## 📂 BLOG CATEGORIES (from database)\n";
+    for (const cat of blogCategories) {
+      context += `- **${cat.name}**`;
+      if (cat.description) context += `: ${cat.description}`;
+      context += "\n";
+    }
+  }
+
+  // ── Product categories ──
+  if (productCategories && productCategories.length > 0) {
+    context += "\n\n## 🏷️ PRODUCT CATEGORIES (from database)\n";
+    for (const cat of productCategories) {
+      context += `- **${cat.name}**`;
+      if (cat.description) context += `: ${cat.description}`;
+      context += "\n";
+    }
+  }
+
+  // ── Site settings (ISP prices, platform config) ──
+  if (siteSettings && Object.keys(siteSettings).length > 0) {
+    context += "\n\n## ⚙️ PLATFORM SETTINGS (from database)\n";
+    for (const [key, value] of Object.entries(siteSettings)) {
+      if (key.toLowerCase().includes("isp") || key.toLowerCase().includes("fiber") || key.toLowerCase().includes("price") || key.toLowerCase().includes("plan") || key.toLowerCase().includes("feature")) {
+        context += `- **${key}**: ${typeof value === "object" ? JSON.stringify(value) : String(value)}\n`;
+      }
+    }
+  }
+
+  // ── Blog posts ──
   if (blogPosts && blogPosts.length > 0) {
     context += "\n\n## 📚 AVAILABLE BLOG ARTICLES (from database)\n";
     context += "ONLY reference these articles when helping customers. These are REAL articles on our platform:\n";
@@ -336,6 +407,7 @@ export function buildDynamicContext(blogPosts?: BlogPostContext[], products?: Pr
     context += "No blog articles are currently available in the database. Do NOT invent article titles. Say: 'Check our blog at /blog for the latest guides.'\n";
   }
 
+  // ── Products (routers/shop) ──
   if (products && products.length > 0) {
     context += "\n\n## 🛒 AVAILABLE PRODUCTS IN SHOP (from database) — USE ONLY THESE\n";
     context += "These are the ONLY routers/products you should recommend. These exist in our real shop:\n";
