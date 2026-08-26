@@ -2,15 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["*.monkeycode-ai.live", "*.daytonaproxy01.net"],
-  async rewrites() {
-    const apiBase = process.env.API_URL ?? "http://localhost:3001";
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${apiBase}/api/:path*`,
-      },
-    ];
-  },
+  // API rewrites removed — handled by custom server.ts which mounts Express on the same port.
 };
 
 export default nextConfig;
