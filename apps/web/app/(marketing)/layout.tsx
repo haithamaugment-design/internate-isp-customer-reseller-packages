@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useState } from "react";
+import SalesChatbot from "@/components/SalesChatbot";
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -104,6 +105,9 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
       {/* ═══ MAIN ═══ */}
       <main className="flex-1 relative z-10">{children}</main>
+
+      {/* ═══ SALES CHATBOT ═══ */}
+      <SalesChatbot />
 
       {/* ═══ FOOTER ═══ */}
       <footer className="glass-strong border-t border-[var(--hairline)] mt-auto relative z-10">

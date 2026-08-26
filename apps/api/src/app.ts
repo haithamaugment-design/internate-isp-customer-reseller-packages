@@ -91,6 +91,15 @@ try {
   console.error("[routes] Failed to load fiber-detection routes (non-fatal):", err.message);
 }
 
+// Public sales agent — no auth required, for homepage chatbot
+try {
+  const salesAgentRoutes = require("./modules/business-ai/sales-agent.routes").default;
+  app.use("/api/v1/sales-agent", apiRateLimit, salesAgentRoutes);
+  console.log("[routes] sales-agent routes loaded");
+} catch (err: any) {
+  console.error("[routes] Failed to load sales-agent routes (non-fatal):", err.message);
+}
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
