@@ -134,7 +134,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 group ${
           isOpen
-            ? "bg-[var(--glass-surface-strong)] border border-[var(--hairline)]"
+            ? "bg-white border border-gray-200 text-gray-700"
             : "bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] text-white shadow-[var(--accent-blue)]/40"
         }`}
         aria-label={isOpen ? "Close chat" : "Chat with sales assistant"}
@@ -159,7 +159,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
       {isOpen && (
         <div
           className="fixed bottom-24 right-6 z-[9998] w-[400px] max-w-[calc(100vw-48px)] h-[560px] max-h-[calc(100vh-140px)] rounded-2xl overflow-hidden shadow-2xl border border-[var(--hairline)] flex flex-col"
-          style={{ background: "var(--glass-surface)" }}
+          style={{ background: "#ffffff" }}
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-[var(--accent-blue)] to-[var(--accent-purple)] px-5 py-4 flex items-center gap-3 shrink-0">
@@ -191,7 +191,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                   className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === "user"
                       ? "bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-blue)]/90 text-white rounded-br-md shadow-md shadow-[var(--accent-blue)]/10"
-                      : "bg-white/80 dark:bg-white/5 text-[var(--text-primary)] border border-[var(--hairline)] rounded-bl-md shadow-sm"
+                      : "bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm"
                   }`}
                 >
                   <div
@@ -206,14 +206,14 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
             {/* Loading indicator */}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white/80 dark:bg-white/5 border border-[var(--hairline)] rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
                       <span className="w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                       <span className="w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
                       <span className="w-2 h-2 bg-[var(--accent-blue)] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                     </div>
-                    <span className="text-xs text-[var(--text-tertiary)]">Thinking...</span>
+                    <span className="text-xs text-gray-500">Thinking...</span>
                   </div>
                 </div>
               </div>
@@ -232,7 +232,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                     setShowQuickActions(false);
                     sendMessage(action.message);
                   }}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/60 dark:bg-white/5 border border-[var(--hairline)] text-[var(--text-secondary)] hover:text-[var(--accent-blue)] hover:border-[var(--accent-blue)]/40 hover:bg-[var(--accent-blue)]/5 transition-all duration-200"
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:text-[var(--accent-blue)] hover:border-[var(--accent-blue)]/40 hover:bg-blue-50 transition-all duration-200"
                 >
                   {action.icon} {action.label}
                 </button>
@@ -242,7 +242,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
 
           {/* Input */}
           <div className="px-4 pb-4 pt-2 shrink-0">
-            <div className="flex items-center gap-2 bg-white/70 dark:bg-white/5 border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:border-[var(--accent-blue)]/50 focus-within:ring-2 focus-within:ring-[var(--accent-blue)]/10 transition-all">
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5 focus-within:border-[var(--accent-blue)]/50 focus-within:ring-2 focus-within:ring-[var(--accent-blue)]/10 transition-all">
               <input
                 ref={inputRef}
                 type="text"
@@ -250,7 +250,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about routers, pricing, features..."
-                className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none"
+                className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
                 disabled={isLoading}
               />
               <button
@@ -264,7 +264,7 @@ export default function SalesChatbot({ apiBase = "" }: SalesChatbotProps) {
                 </svg>
               </button>
             </div>
-            <p className="text-center text-[10px] text-[var(--text-tertiary)] mt-2 opacity-60">
+            <p className="text-center text-[10px] text-gray-400 mt-2">
               Powered by NetMaster AI • Knows all our features & routers
             </p>
           </div>
