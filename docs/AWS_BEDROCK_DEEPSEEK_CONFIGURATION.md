@@ -1,6 +1,6 @@
-# AWS Bedrock DeepSeek — Complete Configuration Guide
+# AWS Bedrock Qwen3-Coder-Next — Complete Configuration Guide
 
-> **Purpose:** Copy-paste reference for setting up AWS Bedrock with DeepSeek (or any chat model) in a new Node.js/TypeScript project. Extracted from the NetMaster platform's production configuration.
+> **Purpose:** Copy-paste reference for setting up AWS Bedrock with Qwen3-Coder-Next (or any chat model) in a new Node.js/TypeScript project. Extracted from the NetMaster platform's production configuration.
 
 ---
 
@@ -33,7 +33,7 @@ AWS_SECRET_ACCESS_KEY=...
 
 # Required — Bedrock Configuration
 AWS_BEDROCK_REGION=us-east-1
-AWS_BEDROCK_MODEL_ID=deepseek.v3.2
+AWS_BEDROCK_MODEL_ID=qwen.qwen3-coder-next
 
 # Optional — If using AWS Profile instead of env vars
 # AWS_PROFILE=your-profile-name
@@ -97,7 +97,7 @@ function getBedrockRegion(): string {
 }
 
 function getBedrockModelId(): string {
-  return process.env.AWS_BEDROCK_MODEL_ID || "deepseek.v3.2";
+  return process.env.AWS_BEDROCK_MODEL_ID || "qwen.qwen3-coder-next";
 }
 
 let client: BedrockRuntimeClient | null = null;
@@ -150,11 +150,9 @@ export async function bedrockChat(
   const systemContent = options?.systemPrompt || "You are a helpful assistant.";
 
   // Build messages array for the model.
-  // DeepSeek V3.2 on Bedrock may not support the 'system' role in messages,
-  // so we include the system prompt as the first user message as a fallback.
+  // Qwen3-Coder-Next supports the 'system' role natively.
   const chatMessages = [
     { role: "system" as const, content: systemContent },
-    { role: "user" as const, content: `[SYSTEM INSTRUCTIONS — follow these rules exactly]\n\n${systemContent}` },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 
@@ -402,19 +400,8 @@ async function askAI(messages: ChatMessage[], fallbackContext: string): Promise<
     return `[AI unavailable — not configured] ${fallbackContext}`;
   }
   try {
-    // Handle system messages by prepending to first user message
-    // (DeepSeek may not support system role in messages array)
-    const systemMsg = messages.find((m) => m.role === "system");
-    const userMsgs = messages.filter((m) => m.role !== "system");
-    const firstUser = userMsgs[0];
-    if (systemMsg && firstUser) {
-      userMsgs[0] = {
-        role: "user",
-        content: `${systemMsg.content}\n\n---\n\nUser data:\n${firstUser.content}`,
-      };
-    }
     const response = await bedrockChat(
-      userMsgs.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+      messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
     );
     return response.text;
   } catch (err) {
@@ -594,7 +581,7 @@ function parseAIJson(text: string): Record<string, unknown> | null {
 
 | Model ID | Best For | Cost Tier | Max Tokens |
 |----------|----------|-----------|------------|
-| `deepseek.v3.2` | Business planning, conversational, multilingual | Low | 16K |
+| `qwen.qwen3-coder-next` | Coding, business planning, agentic workflows, multilingual | Low | 256K |
 | `anthropic.claude-sonnet-4-20250514-v1:0` | Analysis, coding, complex reasoning | Medium | 200K |
 | `anthropic.claude-3-5-haiku-20241022-v1:0` | Fast responses, classification, simple tasks | Low | 200K |
 | `meta.llama3-70b-instruct-v1:0` | General purpose, good value | Low | 8K |
@@ -604,9 +591,9 @@ function parseAIJson(text: string): Record<string, unknown> | null {
 | `cohere.command-r-plus-v1:0` | RAG, tool use | Medium | 128K |
 
 ### Our Configuration:
-- **Model:** `deepseek.v3.2` (best price/performance for Tanzanian ISP use case)
+- **Model:** `qwen.qwen3-coder-next` (best price/performance for Tanzanian ISP use case)
 - **Region:** `us-east-1` (us-east-1 has the widest model availability)
-- **Why DeepSeek:** Supports Swahili+English mixed prompts, handles structured JSON output well, very low cost per token
+- **Why Qwen3-Coder-Next:** 256K context window, excellent coding & agentic capabilities, supports Swahili+English mixed prompts, handles structured JSON output well, very low cost per token
 
 ### Switching Models:
 Just change the env var:
@@ -616,6 +603,9 @@ AWS_BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-20250514-v1:0
 
 # Switch to Llama for faster, cheaper responses
 AWS_BEDROCK_MODEL_ID=meta.llama3-70b-instruct-v1:0
+
+# Switch to DeepSeek for multilingual conversational
+AWS_BEDROCK_MODEL_ID=deepseek.v3.2
 ```
 
 ---
@@ -633,19 +623,12 @@ AWS_BEDROCK_MODEL_ID=meta.llama3-70b-instruct-v1:0
    function getRegion() { return process.env.AWS_BEDROCK_REGION || "us-east-1"; }
    ```
 
-2. **Don't send system messages to DeepSeek directly**
+2. **Qwen3 supports the system role natively**
    ```typescript
-   // BAD — DeepSeek may ignore the system role
+   // GOOD — Qwen3 handles system role directly
    messages: [
      { role: "system", content: "You are..." },
      { role: "user", content: "Hello" }
-   ]
-   
-   // GOOD — include system prompt as first user message
-   messages: [
-     { role: "system", content: "You are..." },
-     { role: "user", content: "[SYSTEM INSTRUCTIONS]\nYou are...\n\nHello" },
-     ...rest
    ]
    ```
 
@@ -713,6 +696,7 @@ AWS_BEDROCK_MODEL_ID=meta.llama3-70b-instruct-v1:0
 ## 13. Cost Optimization
 
 ### Pricing Reference (Bedrock, approximate):
+- Qwen3-Coder-Next: ~$0.22/1M input tokens (256K context, 16K output)
 - DeepSeek V3.2: ~$0.27/1M input tokens, ~$1.10/1M output tokens
 - Claude Sonnet: ~$3/1M input, ~$15/1M output
 - Llama 70B: ~$0.65/1M input, ~$2.75/1M output
@@ -814,7 +798,7 @@ export { askAI };
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 AWS_BEDROCK_REGION=us-east-1
-AWS_BEDROCK_MODEL_ID=deepseek.v3.2
+AWS_BEDROCK_MODEL_ID=qwen.qwen3-coder-next
 ```
 
 ### Step 4: Use in your feature:
@@ -837,11 +821,11 @@ async function analyzeData(data: any[]) {
 | Concept | Decision |
 |---------|----------|
 | **SDK** | `@aws-sdk/client-bedrock-runtime` only |
-| **Model** | `deepseek.v3.2` (cheap, multilingual, good structured output) |
+| **Model** | `qwen.qwen3-coder-next` (cheap, 256K context, excellent coding & multilingual) |
 | **Region** | `us-east-1` |
 | **Default temperature** | 0.3 (business use), 0.7 (content generation) |
 | **Default max_tokens** | 4096 (adjust per use case) |
-| **System prompt** | Always include as both `system` role AND first `user` message |
+| **System prompt** | Use `system` role (Qwen3 supports it natively) |
 | **Error handling** | Always wrap in try/catch, return fallback |
 | **Response parsing** | Handle multiple formats (DeepSeek, Claude, legacy) |
 | **JSON extraction** | Try ` ```json ``` ` blocks first, then raw JSON |

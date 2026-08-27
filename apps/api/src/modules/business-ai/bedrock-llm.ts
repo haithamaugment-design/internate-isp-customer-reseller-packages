@@ -1,7 +1,7 @@
 /**
  * AWS Bedrock LLM Engine
- * Uses DeepSeek V3.2 (or configurable model) via AWS Bedrock
- * for intelligent, conversational business planning.
+ * Uses Qwen3-Coder-Next (or configurable model) via AWS Bedrock
+ * for intelligent, conversational business planning and coding.
  */
 
 import {
@@ -19,7 +19,7 @@ function getBedrockRegion(): string {
 }
 
 function getBedrockModelId(): string {
-  return process.env.AWS_BEDROCK_MODEL_ID || "deepseek.v3.2";
+  return process.env.AWS_BEDROCK_MODEL_ID || "qwen.qwen3-coder-next";
 }
 
 // The AWS SDK will pick up credentials from:
@@ -254,13 +254,11 @@ export async function bedrockChat(
 ): Promise<BedrockResponse> {
   const bedrock = getClient();
 
-  // Build messages array for chat models (DeepSeek, Claude, etc.)
-  // DeepSeek V3.2 on Bedrock may not support the 'system' role in messages,
-  // so we include the system prompt as the first user message as a fallback.
+  // Build messages array for chat models (Qwen3, Claude, etc.)
+  // Qwen3-Coder-Next supports the 'system' role natively.
   const systemContent = options?.systemPrompt || SYSTEM_PROMPT;
   const chatMessages = [
     { role: "system" as const, content: systemContent },
-    { role: "user" as const, content: `[SYSTEM INSTRUCTIONS — follow these rules exactly]\n\n${systemContent}` },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 
@@ -284,10 +282,10 @@ export async function bedrockChat(
   );
 
   // Extract text from various model response formats:
-  // DeepSeek/Chat: { choices: [{ message: { content: "..." } }] }
-  // Anthropic:     { content: [{ text: "..." }] }
-  // Legacy:        { generation: "..." } or { completions: [{ data: { text: "..." } }] }
-  // Bedrock output: { output: { text: "..." } } or { output: "..." }
+  // Qwen3/ChatGPT-style: { choices: [{ message: { content: "..." } }] }
+  // Anthropic:           { content: [{ text: "..." }] }
+  // Legacy:              { generation: "..." } or { completions: [{ data: { text: "..." } }] }
+  // Bedrock output:      { output: { text: "..." } } or { output: "..." }
   let text = "";
 
   if (responseBody.choices?.[0]?.message?.content) {
