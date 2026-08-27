@@ -100,6 +100,71 @@ try {
   console.error("[routes] Failed to load sales-agent routes (non-fatal):", err.message);
 }
 
+// ═══════════════════════════════════════════════════════════
+// Qwen3 Test Endpoint — generates a market structure trading algorithm
+// GET /api/v1/test-bedrock
+// ═══════════════════════════════════════════════════════════
+app.get("/api/v1/test-bedrock", async (_req, res) => {
+  try {
+    const { bedrockChat, isBedrockConfigured, getBedrockConfig } = require("./modules/business-ai/bedrock-llm");
+    const config = getBedrockConfig();
+
+    if (!isBedrockConfigured()) {
+      return res.json({ ok: false, error: "Bedrock not configured", config });
+    }
+
+    console.log("[test-bedrock] Sending request to Qwen3-Coder-Next...");
+    const startTime = Date.now();
+
+    const response = await bedrockChat(
+      [
+        {
+          role: "user",
+          content: `Create an advanced market structure trading algorithm in Python that includes:
+
+1. **Order Flow Analysis** — Track bid/ask imbalance, cumulative delta, and volume profile
+2. **Market Structure Detection** — Identify swing highs/lows, breaks of structure (BOS), and changes of character (CHoCH)
+3. **Liquidity Zones** — Detect equal highs/lows (liquidity pools), sell-side and buy-side liquidity
+4. **Smart Money Concepts (SMC)** — Order blocks, fair value gaps (FVG), and displacement candles
+5. **Entry/Exit Logic** — Combine all signals into a confluence-based entry system with dynamic stop-loss based on structure
+6. **Risk Management** — Position sizing based on account risk %, maximum drawdown limits
+7. **Backtesting Framework** — Simple backtest using historical OHLCV data with performance metrics (Sharpe, win rate, max drawdown)
+
+Requirements:
+- Use pandas, numpy, and optionally mplfinance for visualization
+- Include a complete working example with sample data generation
+- Add proper logging and error handling
+- Make it modular so each component can be used independently
+- Include type hints throughout
+
+Output the complete Python file with all classes and functions.`,
+        },
+      ],
+      {
+        systemPrompt: "You are an expert quantitative trading developer. You write clean, production-ready Python code with detailed comments. Always include imports, type hints, and docstrings.",
+        maxTokens: 8192,
+        temperature: 0.3,
+        keepJson: true,
+      }
+    );
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[test-bedrock] Response received in ${elapsed}s (${response.text.length} chars)`);
+
+    res.json({
+      ok: true,
+      model: config.modelId,
+      region: config.region,
+      elapsedSeconds: parseFloat(elapsed),
+      responseLength: response.text.length,
+      response: response.text,
+    });
+  } catch (err: any) {
+    console.error("[test-bedrock] Error:", err.message);
+    res.json({ ok: false, error: err.message, name: err.name });
+  }
+});
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
